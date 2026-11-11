@@ -27,6 +27,8 @@ class SlamService extends ChangeNotifier {
   final EventChannel _frameChannel;
   final DateTime Function() _clock;
   final StreamController<ArFrame> _frames = StreamController.broadcast();
+  // Synchronous so listeners see poses in exactly the order they arrive.
+  final StreamController<ArPose> _poses = StreamController.broadcast(sync: true);
   StreamSubscription<dynamic>? _frameSub;
   double _frameRateHz = 10;
   int _frameCount = 0;
@@ -39,6 +41,9 @@ class SlamService extends ChangeNotifier {
 
   /// Camera frames from the AR session (sensor orientation, luma only).
   Stream<ArFrame> get frames => _frames.stream;
+
+  /// Every pose event from the AR session, in arrival order.
+  Stream<ArPose> get poses => _poses.stream;
 
   /// Frames per second actually arriving from the platform.
   double get frameHz => _measuredFrameHz;
@@ -122,6 +127,10 @@ class SlamService extends ChangeNotifier {
     _cameraGranted = await _invoke<bool>('requestCameraPermission') ?? false;
     notifyListeners();
   }
+
+  /// Hardware model, OS and app version from the native side, or null
+  /// when there is no native side (tests, desktop).
+  Future<Map<Object?, Object?>?> deviceInfo() => _invoke<Map<Object?, Object?>>('deviceInfo');
 
   Future<T?> _invoke<T>(String method) async {
     try {
@@ -207,17 +216,13 @@ class SlamService extends ChangeNotifier {
     _error = null;
     final now = _clock();
     onPose?.call(pose, now);
+    _poses.add(pose);
 
     if (_recording && pose.state == ArTrackingState.tracking && pose.hasPose) {
       if (!_aligner.isAnchored) _aligner.anchor(pose.translation!, pose.rotation!);
-      if (_lastPoint == null ||
-          now.difference(_lastPoint!) >= const Duration(milliseconds: 100)) {
+      if (_lastPoint == null || now.difference(_lastPoint!) >= const Duration(milliseconds: 100)) {
         _lastPoint = now;
-        trajectory.add(TrackPoint(
-          position: _aligner.toSession(pose.translation!),
-          timestamp: now,
-          confidence: 1,
-        ));
+        trajectory.add(TrackPoint(position: _aligner.toSession(pose.translation!), timestamp: now, confidence: 1));
       }
     }
 
@@ -233,6 +238,7 @@ class SlamService extends ChangeNotifier {
   void dispose() {
     detach();
     _frames.close();
+    _poses.close();
     super.dispose();
   }
 }

@@ -7,10 +7,13 @@ environment:
   sdk: ^3.13.7
 
 dependencies:
+  archive: ^4.6.0
   flutter:
     sdk: flutter
+  path_provider: ^2.1.6
   provider: ^6.1.5+1
   sensors_plus: ^7.1.1
+  share_plus: ^13.3.1
   vector_math: ^2.4.4
 
 dev_dependencies:

@@ -40,7 +40,13 @@ class DiagnosticsPanel extends StatelessWidget {
           ('  latest', '${vec(imu.lastAccel?.value)} m/s²'),
           ('Gyroscope', '${f(imu.gyroscopeHz, 0)} Hz, ${imu.gyroscopeSamples} samples'),
           ('  latest', '${vec(imu.lastGyro?.value)} rad/s'),
-          ('Recording', session.isRunning ? 'running, ${session.poses} AR poses' : 'stopped'),
+          (
+            'Recording',
+            session.isRunning
+                ? 'running, ${session.poses} AR poses, ${session.recordedFrames} frames saved'
+                : 'stopped',
+          ),
+          ('Device', '${session.device.model}, ${session.device.os}'),
           if (slam.error != null) ('AR error', slam.error!),
           if (imu.error != null) ('IMU error', imu.error!),
         ];
@@ -71,7 +77,8 @@ class DiagnosticsPanel extends StatelessWidget {
                   ),
                 const SizedBox(height: 4),
                 Text(
-                  'Camera and IMU are recorded separately; they are not time-synchronised yet.',
+                  'Camera frames, ARKit poses and IMU samples are timestamped on one clock (boot time). '
+                  'The residual camera–IMU delay is estimated from a recording in the calibration step.',
                   style: theme.textTheme.bodySmall,
                 ),
               ],

@@ -1,0 +1,90 @@
+# Progress
+
+Read with `docs/SPEC.md`. A new session continues from these two files.
+
+Branch: `iphone-slam` (local, not pushed). Toolchain: Flutter 3.47.9 / Dart
+3.13.7 (`~/development/flutter`), the version the repo was created with.
+
+## Starting state (commit `df030f6`, 2026-11-11)
+
+- `flutter analyze`: no issues. `flutter test`: 15 tests pass.
+- `flutter build ios`: could not run, Xcode is not installed on this Mac
+  (only the Command Line Tools). The user is installing Xcode.
+- Spec vs code, found when reading the code:
+  - `docs/SPEC.md` and `docs/IE415_handout.pdf` were not in the repo; added
+    on this branch.
+  - Camera and IMU did not share one clock offset: `ArPlugin.swift` and
+    `sensors_plus` each computed `Date() − systemUptime` at different moments.
+  - `sensors_plus` `gameInterval` gives 50 Hz, not the ~100 Hz the spec wants.
+  - ARKit poses are throttled to 30 Hz in `ArPlugin.swift` (kept).
+  - Frames were skipped while the previous one was converting, and the 0.1 s
+    selection skipped to the 7th ARKit frame about half the time (≈ 8.6 Hz).
+
+## Section 9 checks (by reading source / documentation)
+
+| Item | Result |
+| --- | --- |
+| `sensors_plus` 7.1.1 timestamps | `CMLogItem.timestamp` + its own boot offset (not wall clock at receive) |
+| `sensors_plus` rate | `gameInterval` = 20 ms → 50 Hz |
+| Accelerometer convention | `sensors_plus` reports `−acceleration × 9.81`: +9.81 on the up axis at rest. Kept (with 9.80665) in our own CoreMotion reader. Device confirmation: check 1.3 |
+| ARKit autofocus | `ARWorldTrackingConfiguration.isAutoFocusEnabled` (iOS 11.3+), default on; set to false |
+| ARKit image / intrinsics | `camera.intrinsics` is for `camera.imageResolution`, the size of `capturedImage` (Apple docs). Actual size per device: check 1.1 |
+| `dartcv4` 2.3.1 (for WP3) | modules `calib3d`, `objdetect`, `aruco` are opt-in under `hooks: user_defines: dartcv4: include_modules:`; ChArUco detector and board are bound; `SOLVEPNP_IPPE_SQUARE`, `solvePnP`, `calibrateCamera`, `findChessboardCorners` bound; iOS build uses CMake with the Xcode generator (CMake not installed yet) |
+| Package versions | path_provider 2.1.6, share_plus 13.3.1, archive 4.6.0 all accept Dart 3.13 / Flutter 3.47 |
+
+## Work packages
+
+### WP1 dataset recorder and replay: code done, iOS build and device checks pending
+
+Done:
+- Swift: 960×720 frames (integer box filter, intrinsics rescaled), native
+  grayscale JPEG (quality 0.95), autofocus off, 10 Hz frame selection fixed,
+  CoreMotion accelerometer + gyroscope at 100 Hz on the same timestamp offset
+  as the frames (`vslam/imu`), `deviceInfo` method.
+- Dart: `lib/dataset/` (event types and `SensorSource`, writer, reader,
+  replay, live source, recorder, store), recording settings, sessions list and
+  detail screens (open, rename, export as zip through the share sheet,
+  delete).
+- Docs: `DESIGN.md` (acquisition and dataset sections), `DEVICE_CHECKS.md`
+  (WP1), `EXPERIMENTS.md` (recording part).
+
+Checks:
+- `flutter analyze`: no issues.
+- `flutter test`: 35 tests pass (15 existing + 20 new: SE(3) and camera
+  model, dataset round trip of every field, replay order and counts, rates,
+  frame-gap counting, recorder, live controller to disk, store
+  list/rename/zip/delete/settings, two widget tests of record → list →
+  detail → rename → delete).
+- `flutter build ios --debug --no-codesign`: **not run yet (no Xcode)**.
+- Device checks 1.1–1.5: **pending (user)**.
+
+Bugs the widget tests caught and fixed: rename dialog disposed its text
+controller during the closing animation; the sessions list called `setState`
+with a closure returning a Future.
+
+## Decisions
+
+- IMU on iOS read directly from CoreMotion in `ArPlugin.swift`
+  (spec section 9 fallback): `sensors_plus` gives 50 Hz and a separate clock
+  offset. Android still uses `sensors_plus`.
+- Accelerometer stored as specific force (+g up at rest), the convention the
+  existing Dart code and test fixtures already used.
+- Images saved as 8-bit grayscale JPEG (the pipeline only uses luma), encoded
+  natively so Dart only writes bytes.
+- `frames.csv` gets each image's own ARKit pose (7 extra columns): the pose
+  stream is throttled and comes from other frames.
+- Replay order: timestamp, then IMU < pose < frame, then file order.
+- Start still starts immediately (existing behaviour and test); settings are
+  edited beforehand on the settings row and kept in
+  `Documents/recording_settings.json`.
+- Export zips with no recompression (`store`), since images are already JPEG,
+  on a background isolate, into the temporary directory.
+
+## Open questions
+
+- Which iPhone model the team uses (ARKit video format, hence frame size).
+
+## Next
+
+WP2 (calibration, IMU timing and alignment) after the WP1 device checks are
+confirmed.
