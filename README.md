@@ -49,7 +49,7 @@ flutter pub get
 flutter run --release   # with a phone connected
 ```
 
-Developed with Flutter 3.47.9 (Dart 3.13.7). The iOS build needs Xcode.
+Developed with Flutter 3.47.9 (Dart 3.13.7) and Xcode 27.2.
 
 - **Android:** Android SDK (API 36) and JDK 17. ARCore comes from Gradle.
 - **iOS:** Xcode. Open `ios/Runner.xcworkspace` once and set a development

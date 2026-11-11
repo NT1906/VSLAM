@@ -8,8 +8,9 @@ Branch: `iphone-slam` (local, not pushed). Toolchain: Flutter 3.47.9 / Dart
 ## Starting state (commit `df030f6`, 2026-11-11)
 
 - `flutter analyze`: no issues. `flutter test`: 15 tests pass.
-- `flutter build ios`: could not run, Xcode is not installed on this Mac
-  (only the Command Line Tools). The user is installing Xcode.
+- `flutter build ios`: could not run at first, Xcode was not installed on
+  this Mac (only the Command Line Tools). Xcode 27.2 (27B52) was then
+  installed and selected; the first build check is under WP1 below.
 - Spec vs code, found when reading the code:
   - `docs/SPEC.md` and `docs/IE415_handout.pdf` were not in the repo; added
     on this branch.
@@ -34,7 +35,7 @@ Branch: `iphone-slam` (local, not pushed). Toolchain: Flutter 3.47.9 / Dart
 
 ## Work packages
 
-### WP1 dataset recorder and replay: code done, iOS build and device checks pending
+### WP1 dataset recorder and replay: code done and builds, device checks pending
 
 Done:
 - Swift: 960×720 frames (integer box filter, intrinsics rescaled), native
@@ -55,7 +56,9 @@ Checks:
   frame-gap counting, recorder, live controller to disk, store
   list/rename/zip/delete/settings, two widget tests of record → list →
   detail → rename → delete).
-- `flutter build ios --debug --no-codesign`: **not run yet (no Xcode)**.
+- `flutter build ios --debug --no-codesign`: passes (Xcode 27.2, iOS SDK
+  27.2, 2026-11-11), no compiler warnings or errors from our Swift code. The
+  Swift changes (CoreMotion stream, JPEG encoder, autofocus setting) compile.
 - Device checks 1.1–1.5: **pending (user)**.
 
 Bugs the widget tests caught and fixed: rename dialog disposed its text
