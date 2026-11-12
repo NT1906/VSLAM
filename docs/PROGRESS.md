@@ -59,7 +59,19 @@ Checks:
 - `flutter build ios --debug --no-codesign`: passes (Xcode 27.2, iOS SDK
   27.2, 2026-11-11), no compiler warnings or errors from our Swift code. The
   Swift changes (CoreMotion stream, JPEG encoder, autofocus setting) compile.
-- Device checks 1.1–1.5: **pending (user)**.
+- Device checks (iPhone 15, `iPhone15,4`, iOS 26.2.1, release build, 2026-11-12):
+  - First short session `2026-11-12_08-48-35_run` (9.50 s, hand-held), from
+    the session screen: image 960×720 from 1920×1440, JPEG q 0.95;
+    intrinsics fx 722.0 fy 722.0 cx 481.4 cy 361.6; 95 frames at 10.0 Hz,
+    0 gaps, 0 without image; 286 ARKit poses, all tracked, 30.0 Hz;
+    accelerometer and gyroscope 952 each at 100.5 Hz; frames span 9.40 s,
+    IMU 9.47 s, IMU starts 0.02 s after the first frame. Live frame-rate tile
+    showed 10.1 Hz.
+  - 1.1: passes on these numbers (size, rate, device row).
+  - 1.2–1.5: pending (user).
+  - Fixed after this run: the session screen printed a negative "before"
+    time when the IMU started after the first frame; it now says before or
+    after.
 
 Bugs the widget tests caught and fixed: rename dialog disposed its text
 controller during the closing animation; the sessions list called `setState`

@@ -42,7 +42,7 @@ Expected on the session screen:
 - Frames ≈ 600 at 10.0 Hz (±0.2), **0 gaps**, 0 without image.
 - ARKit poses ≈ 1800 at about 30 Hz.
 - Accelerometer and gyroscope each ≈ 6000 at about 100 Hz.
-- Time span: frames and IMU both ≈ 60 s; IMU starts less than 0.2 s before the
+- Time span: frames and IMU both ≈ 60 s; IMU starts within 0.2 s of the
   first frame.
 
 Then in the Files app (On My iPhone → VSLAM → sessions → this folder), or on

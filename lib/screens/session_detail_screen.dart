@@ -187,7 +187,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         (
           'Time span',
           'frames ${secs(frameTimes.last - frameTimes.first)}, IMU ${secs(imuTimes.last - imuTimes.first)}, '
-              'IMU starts ${secs(frameTimes.first - imuTimes.first)} before the first frame',
+              'IMU starts ${secs((frameTimes.first - imuTimes.first).abs())} '
+              '${frameTimes.first >= imuTimes.first ? 'before' : 'after'} the first frame',
         ),
     ];
   }
