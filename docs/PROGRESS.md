@@ -88,7 +88,17 @@ Checks:
     wrong; it now asks for the range. Per-frame intrinsics are stored, so
     nothing is lost; whether to use ARKit's per-frame values or one
     calibrated set is decided in WP2.
-  - 1.4–1.5: pending (user).
+  - 1.4 (`2026-11-12_09-05-51_wp1-walk`, hand-held walk with a near/far
+    look): 60.44 s; 604 frames at 10.0 Hz, 0 gaps, 0 without image; 1812
+    poses, all tracked, 30.0 Hz; accelerometer and gyroscope 6067 each at
+    100.5 Hz; IMU starts 0.01 s before the first frame; ARKit path length
+    5.73 m. First frame sharp. From the exported `frames.csv`: every frame
+    tracked; fx = fy 721.270–721.635 (spread 0.37 px), cx spread 0.33 px,
+    cy spread 0.41 px: no refocusing. Passes.
+  - 1.5: export by AirDrop works for both sessions; unzipped walk folder has
+    `meta.json`, `frames.csv`, `arkit_poses.csv`, `imu.csv`, 604 gray
+    960×720 JPEGs in `frames/` and an empty `results/`. Finder, rename and
+    delete: pending (user).
   - Fixed after this run: the session screen printed a negative "before"
     time when the IMU started after the first frame; it now says before or
     after.
