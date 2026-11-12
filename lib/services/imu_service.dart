@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:vector_math/vector_math_64.dart';
 
@@ -14,19 +15,45 @@ class ImuSample {
 
 typedef ImuStreamFactory = Stream<ImuSample> Function();
 
-Stream<ImuSample> _accelerometer() =>
-    accelerometerEventStream(samplingPeriod: SensorInterval.gameInterval)
-        .map((e) => ImuSample(Vector3(e.x, e.y, e.z), e.timestamp));
+/// Native CoreMotion stream (iOS, `ImuStream` in `ArPlugin.swift`): 100 Hz,
+/// timestamps from `CMLogItem.timestamp` converted with the same offset as
+/// the camera frames. Batches of `[sensor, t_us, x, y, z]`, sensor 0 =
+/// accelerometer, 1 = gyroscope. Created once: both sensor streams share one
+/// native subscription.
+final Stream<(ImuSample, bool)> _nativeImu = const EventChannel('vslam/imu').receiveBroadcastStream().expand((event) {
+  final v = event as Float64List;
+  return [
+    for (var i = 0; i + 4 < v.length; i += 5)
+      (
+        ImuSample(Vector3(v[i + 2], v[i + 3], v[i + 4]), DateTime.fromMicrosecondsSinceEpoch(v[i + 1].round())),
+        v[i] == 1,
+      ),
+  ];
+});
 
-Stream<ImuSample> _gyroscope() =>
-    gyroscopeEventStream(samplingPeriod: SensorInterval.gameInterval)
-        .map((e) => ImuSample(Vector3(e.x, e.y, e.z), e.timestamp));
+bool get _useNativeImu => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+/// sensors_plus (Android): `gameInterval` is 20 ms, i.e. 50 Hz.
+Stream<ImuSample> _accelerometer() => _useNativeImu
+    ? _nativeImu.where((s) => !s.$2).map((s) => s.$1)
+    : accelerometerEventStream(samplingPeriod: SensorInterval.gameInterval)
+          .map((e) => ImuSample(Vector3(e.x, e.y, e.z), e.timestamp));
+
+Stream<ImuSample> _gyroscope() => _useNativeImu
+    ? _nativeImu.where((s) => s.$2).map((s) => s.$1)
+    : gyroscopeEventStream(samplingPeriod: SensorInterval.gameInterval)
+          .map((e) => ImuSample(Vector3(e.x, e.y, e.z), e.timestamp));
 
 /// Streams the phone's accelerometer and gyroscope, measures their sample
 /// rates and keeps the latest readings for the status display.
 ///
-/// The IMU is acquired on its own: it is not yet time-synchronised with
-/// the camera frames.
+/// On iOS the samples come from CoreMotion through `ArPlugin.swift` at
+/// 100 Hz, timestamped on the same clock as the camera frames. Any residual
+/// camera–IMU delay is estimated from recorded data in WP2.
+///
+/// Units: accelerometer m/s² as specific force (+9.81 along the axis that
+/// points up at rest), gyroscope rad/s; device axes x right, y toward the
+/// top of the screen, z out of the screen.
 class ImuService extends ChangeNotifier {
   ImuService({
     ImuStreamFactory accelerometer = _accelerometer,
@@ -49,6 +76,12 @@ class ImuService extends ChangeNotifier {
 
   /// Every raw sample; `gyro` tells which sensor.
   void Function(ImuSample sample, bool gyro)? onSample;
+
+  // Synchronous so listeners see samples in arrival order.
+  final StreamController<(ImuSample, bool)> _samples = StreamController.broadcast(sync: true);
+
+  /// Every raw sample as `(sample, isGyro)`, while running.
+  Stream<(ImuSample, bool)> get samples => _samples.stream;
 
   int _accWindow = 0, _gyroWindow = 0;
   DateTime? _rateWindowStart;
@@ -125,6 +158,7 @@ class ImuService extends ChangeNotifier {
 
   void _onSample(ImuSample s, bool gyro) {
     onSample?.call(s, gyro);
+    _samples.add((s, gyro));
     if (gyro) {
       _gyroWindow++;
       _gyroTotal++;
@@ -144,7 +178,7 @@ class ImuService extends ChangeNotifier {
       _gyroWindow = 0;
       _rateWindowStart = now;
     }
-    // Sensors arrive at ~50 Hz per stream; repaint at most ~10 Hz.
+    // Sensors arrive at 50–100 Hz per stream; repaint at most ~10 Hz.
     if (_lastNotify == null || now.difference(_lastNotify!) >= const Duration(milliseconds: 100)) {
       _lastNotify = now;
       notifyListeners();
@@ -154,6 +188,7 @@ class ImuService extends ChangeNotifier {
   @override
   void dispose() {
     _cancelSensors();
+    _samples.close();
     super.dispose();
   }
 }

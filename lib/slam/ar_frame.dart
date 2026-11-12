@@ -19,10 +19,14 @@ class ArFrame {
     required this.state,
     this.translation,
     this.rotation,
+    this.jpeg,
+    this.jpegQuality,
+    this.sourceWidth,
+    this.sourceHeight,
   });
 
-  /// Capture time on the shared sensor clock (epoch µs, same clock as the
-  /// IMU samples from sensors_plus).
+  /// Capture time on the shared sensor clock (epoch µs; on iOS the same
+  /// offset is applied to the CoreMotion samples, see `ArPlugin.swift`).
   final DateTime time;
 
   /// When Dart received the frame.
@@ -37,13 +41,22 @@ class ArFrame {
   final Vector3? translation;
   final Quaternion? rotation;
 
+  /// JPEG of [gray] encoded natively (iOS), for the dataset recorder.
+  final Uint8List? jpeg;
+  final double? jpegQuality;
+
+  /// Size of the full camera image [gray] was box-filtered from.
+  final int? sourceWidth;
+  final int? sourceHeight;
+
   bool get tracking => state == ArTrackingState.tracking && translation != null && rotation != null;
 
   /// `vTc` for the estimator, or null when not tracking.
   Pose3? get vioPose => tracking ? arPoseToVio(translation!, rotation!) : null;
 
   /// Parses a `vslam/ar_frames` event:
-  /// `{ts, w, h, y: bytes, k: [fx, fy, cx, cy], state, t?, q?}`.
+  /// `{ts, w, h, y: bytes, k: [fx, fy, cx, cy], state, t?, q?, jpg?, jpgQ?,
+  /// srcW?, srcH?}`.
   factory ArFrame.fromMap(Map<Object?, Object?> map, DateTime received) {
     final w = (map['w'] as num).toInt();
     final h = (map['h'] as num).toInt();
@@ -60,6 +73,10 @@ class ArFrame {
       state: pose.state,
       translation: pose.translation,
       rotation: pose.rotation,
+      jpeg: map['jpg'] as Uint8List?,
+      jpegQuality: (map['jpgQ'] as num?)?.toDouble(),
+      sourceWidth: (map['srcW'] as num?)?.toInt(),
+      sourceHeight: (map['srcH'] as num?)?.toInt(),
     );
   }
 }
