@@ -35,7 +35,7 @@ Branch: `iphone-slam` (local, not pushed). Toolchain: Flutter 3.47.9 / Dart
 
 ## Work packages
 
-### WP1 dataset recorder and replay: code done and builds, device checks pending
+### WP1 dataset recorder and replay: done, device checks passed
 
 Done:
 - Swift: 960×720 frames (integer box filter, intrinsics rescaled), native
@@ -97,8 +97,15 @@ Checks:
     cy spread 0.41 px: no refocusing. Passes.
   - 1.5: export by AirDrop works for both sessions; unzipped walk folder has
     `meta.json`, `frames.csv`, `arkit_poses.csv`, `imu.csv`, 604 gray
-    960×720 JPEGs in `frames/` and an empty `results/`. Finder, rename and
-    delete: pending (user).
+    960×720 JPEGs in `frames/` and an empty `results/`. Finder: phone →
+    Files shows VSLAM with the `sessions` folder. Rename: `wp1-walk` →
+    `2026-11-12_09-05-51_wp1-walk-renamed` (date-time prefix kept). Delete:
+    the accidental 5-frame session `2026-11-12_09-00-47_wp1-static` asked
+    for confirmation and left the list. (Its absence in the Files app was
+    not checked separately.) Passes.
+  - WP1 device checks 1.1–1.5: **all pass** (2026-11-12). Kept zips:
+    `2026-11-12_09-01-42_wp1-static.zip`, `2026-11-12_09-05-51_wp1-walk.zip`
+    (exported before the rename; outside git).
   - Fixed after this run: the session screen printed a negative "before"
     time when the IMU started after the first frame; it now says before or
     after.
@@ -127,7 +134,7 @@ with a closure returning a Future.
 
 ## Open questions
 
-- Which iPhone model the team uses (ARKit video format, hence frame size).
+- Answered: iPhone 15 (`iPhone15,4`), ARKit image 1920×1440 → 960×720.
 
 ## Next
 
