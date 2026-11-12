@@ -68,7 +68,27 @@ Checks:
     IMU 9.47 s, IMU starts 0.02 s after the first frame. Live frame-rate tile
     showed 10.1 Hz.
   - 1.1: passes on these numbers (size, rate, device row).
-  - 1.2–1.5: pending (user).
+  - 1.2: passes (label `wp1-static`, Calibration / alignment, 15.0 cm, kept
+    after force-quit).
+  - 1.3 (`2026-11-12_09-01-42_wp1-static`, phone flat, screen up, top end over
+    the table edge): 60.37 s; 604 frames at 10.0 Hz, 0 gaps, 0 without image;
+    1811 poses, all tracked, 30.0 Hz; accelerometer 6062 and gyroscope 6061
+    at 100.5 Hz; frames span 60.32 s, IMU 60.33 s, IMU starts 0.03 s after the
+    first frame. From the exported `imu.csv`: acc mean (0.285, 0.165, 9.851)
+    m/s², std ≈ 0.007 on each axis, so +g on +z with the screen up: the
+    specific-force sign is confirmed. The 0.33 m/s² in x/y is ≈ 1.9° of tilt
+    or bias. Gyro means within 0.002 rad/s, std 0.0009, all samples within
+    ±0.022 rad/s. Zip contents as expected (604 JPEGs, 960×720, empty
+    `results/`). Passes.
+  - Finding: the intrinsics are **not** constant within a session even with
+    autofocus off and the phone still. In the static run fx = fy ranged
+    721.334–721.439 (57 distinct values), cx 477.538–477.616, cy
+    361.473–361.553, i.e. about 0.1 px. Between sessions fx was 722.0 (first
+    run) and 721.4. Check 1.4's expectation "fx identical on every row" was
+    wrong; it now asks for the range. Per-frame intrinsics are stored, so
+    nothing is lost; whether to use ARKit's per-frame values or one
+    calibrated set is decided in WP2.
+  - 1.4–1.5: pending (user).
   - Fixed after this run: the session screen printed a negative "before"
     time when the IMU started after the first frame; it now says before or
     after.

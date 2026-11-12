@@ -64,8 +64,10 @@ Expected:
 - Frames ≈ 10 Hz, 0 gaps (report the gap count if not 0).
 - ARKit poses mostly tracked.
 - The first-frame picture is a sharp gray landscape image.
-- In `frames.csv`, the `fx` value is identical on every row (autofocus is off,
-  so the focal length must not change). Report min and max of `fx`.
+- In `frames.csv`, report min and max of `fx`. With autofocus off the lens
+  does not refocus, but ARKit still reports slightly different intrinsics per
+  frame: the static run (1.3) spread about 0.1 px (721.33–721.44). A spread of
+  a few pixels or more under motion would mean the focus moved.
 
 ### 1.5 Export, Finder, rename, delete
 
