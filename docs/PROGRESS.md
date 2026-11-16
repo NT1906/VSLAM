@@ -182,7 +182,22 @@ Device checks (iPhone 15, release build, 2026-11-16):
   differences −4.8, −6.5, −5.4, −3.2 px (fx −0.67 %, fy −0.90 %).
   Passes (RMS < 0.5, focal within 1–2 %, principal point within a few px);
   RMS is near the limit, a stiffer board would likely lower it.
-- 2.3: pending.
+- 2.3 first run (`2026-11-16_14-26-21_wp2-rotation`): 27.46 s; 275 frames at
+  10.0 Hz, 0 gaps; 822 poses, all tracked, 30.0 Hz; acc and gyro 2756 each at
+  100.5 Hz. IMU alignment: R_ci rows (−0.001 −1.000 0.001 / −1.000 0.001
+  0.001 / −0.001 −0.001 −1.000), **0.10° from Apple's axes**; offset 0.3 ms;
+  residual 0.007 rad/s RMS, **also 0.007 at zero offset**; 498 pairs; mean
+  rate 0.20 rad/s.
+  Reading: the rotation confirms `appleCameraFromDevice` on the device
+  (including the Core Motion axes that could not be read from Apple's
+  illustration). The offset is not resolved by this run: the motion was
+  slow (0.20 rad/s mean, expected > 1 rad/s), and the residual does not
+  change with the offset; it says only that there is no large offset.
+  Caveat for the report: ARKit's orientation is itself fused with this
+  gyroscope through Apple's factory camera–IMU calibration, so the
+  agreement checks our conventions and the shared clock rather than giving
+  an independent extrinsic calibration.
+- 2.3 second run (faster swings): pending.
 
 ## Decisions
 
