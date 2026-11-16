@@ -52,6 +52,14 @@ void main() {
     final calibrate = tester.widget<OutlinedButton>(find.widgetWithText(OutlinedButton, 'Calibrate'));
     expect(calibrate.onPressed, isNull);
     expect(find.textContaining('0 views (15–20)'), findsOneWidget);
+    // Typing a square size shows the value captures will use.
+    expect(find.text('Captures will use 25.0 mm'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '20.6');
+    await tester.pump();
+    expect(find.text('Captures will use 20.6 mm'), findsOneWidget);
+    await tester.tap(find.byTooltip('Done'));
+    await tester.pump();
+    expect(find.text('Captures will use 20.6 mm'), findsOneWidget);
   });
 
   test('alignment from ARKit-convention poses recovers the offset and rotation', () {

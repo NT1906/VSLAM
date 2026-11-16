@@ -38,10 +38,14 @@ class _CalibrationPanelState extends State<CalibrationPanel> {
 
   Future<Directory> _documents() => (widget.documents ?? getApplicationDocumentsDirectory)();
 
-  CalibrationBoard get _board {
-    final mm = double.tryParse(_square.text.replaceAll(',', '.')) ?? 25.0;
-    return CalibrationBoard.standard.withSquare(mm / 1000);
+  /// The square side typed in, or the printed 25 mm when the text is not a
+  /// positive number.
+  double get _squareMm {
+    final mm = double.tryParse(_square.text.trim().replaceAll(',', '.'));
+    return mm != null && mm > 0 ? mm : 25.0;
   }
+
+  CalibrationBoard get _board => CalibrationBoard.standard.withSquare(_squareMm / 1000);
 
   @override
   void initState() {
@@ -117,7 +121,29 @@ class _CalibrationPanelState extends State<CalibrationPanel> {
                 controller: _square,
                 enabled: _views.isEmpty,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Measured square side (mm)', isDense: true),
+                textInputAction: TextInputAction.done,
+                // The iOS number pad has no Done key: the check button and a
+                // tap anywhere else close it.
+                onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: 'Measured square side (mm)',
+                  isDense: true,
+                  helperText: _views.isEmpty
+                      ? 'Captures will use ${_squareMm.toStringAsFixed(1)} mm'
+                      : 'Locked at ${_squareMm.toStringAsFixed(1)} mm for this calibration',
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.check),
+                    tooltip: 'Done',
+                    onPressed: _views.isEmpty
+                        ? () {
+                            FocusScope.of(context).unfocus();
+                            setState(() {});
+                          }
+                        : null,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 12),
