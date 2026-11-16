@@ -156,6 +156,7 @@
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				9740EEB61CF901F6004384FC /* Run Script */,
+				5D3A7C1E9B2F4A6800D1E2F3 /* Clear dartcv4 keep-list */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
@@ -268,6 +269,21 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+		};
+		5D3A7C1E9B2F4A6800D1E2F3 /* Clear dartcv4 keep-list */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Clear dartcv4 keep-list";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# dartcv4 2.3.1's link hook writes this export keep-list on AOT builds. With the\n# aruco module it also lists finalizer symbols of contrib modules that are not\n# built (freetype, quality, ximgproc, ...), so the next native build fails to\n# link. Without the file the library simply exports everything (treeshake is\n# off). See docs/PROGRESS.md, WP3.\nrm -f \"${SRCROOT}/../.dart_tool/hooks_runner/shared/dartcv4/dartcv_keep.txt\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

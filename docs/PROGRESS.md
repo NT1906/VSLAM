@@ -204,6 +204,87 @@ Device checks (iPhone 15, release build, 2026-11-16):
 - WP2 device checks: **done** (2026-11-16): 2.0, 2.1, 2.2 pass; 2.3 passes for
   the rotation, the offset is bounded only ("no large offset").
 
+### WP3 ArUco detection and pose: done in code, device check pending
+
+Done:
+- `lib/vision/aruco_detector.dart`: OpenCV `ArucoDetector`, `DICT_4X4_50`,
+  `CORNER_REFINE_SUBPIX`; `solvePnPGeneric` with `SOLVEPNP_IPPE_SQUARE`
+  (both solutions); runs in a background isolate. Behind a `MarkerDetector`
+  interface so UI tests can use a fake.
+- `lib/vision/marker_observation.dart`: object points (spec 4.3), reprojection
+  RMS with our camera model, the four rejection rules of spec 4.4 plus "no
+  pose", `detections.csv` row format and parser.
+- `lib/estimation/config.dart`: `SlamConfig` with the detection thresholds
+  (20 px, 65°, 2 px, ambiguity 2 × max(best, 0.5 px), corner σ 0.5 px).
+  Later packages add their parameters here.
+- `lib/vision/session_detection.dart`: intrinsics choice, detection over every
+  frame of a saved session → `results/detections.csv` + `detections.json`;
+  session screen → **Detect markers**.
+- `lib/widgets/marker_overlay.dart`: live outlines, IDs, distances and
+  rejection reasons on the camera view; status line with marker side,
+  intrinsics source, count and detection time. Pixel → view mapping from
+  ARKit's `displayTransform(for: .portrait, viewportSize:)`, now sent by
+  `ArPlugin.swift` with each frame (`disp`), with a Dart fallback.
+- `lib/vision/marker_sheet.dart`, `tools/make_markers.dart` →
+  `docs/markers_4x4_50_ids0-9.pdf` (A4, one ID per page, 150 mm, TOP mark,
+  100 mm ruler, instructions to measure the printed side and enter it).
+- Docs: `DESIGN.md` section 6 and table (now section 7), README status,
+  `DEVICE_CHECKS.md` WP3.
+
+API checks (read in the source before use): dartcv4 2.3.1 `ArucoDetector.create`,
+`detectMarkers` → `(VecVecPoint2f, VecI32, VecVecPoint2f)`,
+`ArucoDetectorParameters.cornerRefinementMethod` setter (the enum is not
+bound: SUBPIX = 1 read in OpenCV 4.13's `aruco_detector.hpp` in the build
+tree), `arucoGenerateImageMarker`, `solvePnPGeneric` (C wrapper passes
+`reprojectionError` through; we compute RMS ourselves anyway),
+`Mat.fromList` with `CV_64FC3` / `CV_64FC2`. OpenCV's own
+`solvePnPGeneric` docs give the IPPE_SQUARE point order, which matches spec
+4.3.
+
+Checks (2026-11-16):
+- `flutter analyze`: no issues.
+- `flutter test`: 72 pass (47 before + 25 new).
+- `flutter build ios --debug --no-codesign`: passes (Swift `displayTransform`
+  change compiles). Two `flutter build ios --release --no-codesign` in a row
+  also pass: the link hook wrote the keep-list (137 symbols) and the new
+  build phase removed it, so the second build linked normally.
+- Detector on rendered markers (calibrated K: fx 716.5, k1 0.0715, k2 −0.1411;
+  4 × 4 supersampled ray casting, JPEG q 95): every corner within 0.5 px,
+  distance within 1 %, rotation within 2° at 0.4–1.5 m, turned 30–45°, rolled
+  up to 170°, near the image corner; also with ARKit K; two markers in one
+  image; head-on at 2.5 m → `ambiguous`; 18 px at 6 m → `small`; 72° →
+  `angle`. Thresholds were set before the first run and not changed.
+- One test failed on its first run and was a test error: the "two markers"
+  scene in the session test put marker 8 off-centre (≈ 17°) and turned it
+  −30° toward the camera, so it was seen at 13° and correctly called
+  ambiguous (RMS 0.04 vs 0.86 px). The scene was changed to turn it away
+  (seen at ≈ 47°).
+- Rendered-data observation worth knowing for the experiments: head-on views
+  are ambiguous already at 1.5 m (13°: alternative RMS 0.86 px), while 30°
+  gives a clear winner (1.8 px). Markers should be seen at an angle at least
+  sometimes to initialize them; distance is valid either way.
+
+Found and worked around: dartcv4 2.3.1 link-hook bug.
+- On AOT builds (`flutter run --release`, `flutter build ios --release`) its
+  link hook writes `.dart_tool/hooks_runner/shared/dartcv4/dartcv_keep.txt`,
+  a list of symbols the next native build must export. With `aruco` enabled
+  it adds the finalizer symbols of *every* module in `contrib.g.dart`
+  (freetype, quality, img_hash, ximgproc, xobjdetect), which are not built.
+  Every later native build then fails to link ("Undefined symbols
+  _cv_freetype_FreeType2_close …"). It hit the first macOS test build of
+  WP3 (the file was left by a WP2 release build at 13:35).
+- Fix: an Xcode build phase "Clear dartcv4 keep-list" (after Flutter's
+  build script) deletes the file, and it was deleted once by hand. Without
+  it the library exports everything, which was the behaviour before any
+  release build (`treeshake` is off).
+- If `flutter test` ever fails with those undefined symbols again, delete
+  that file and rerun.
+- Also seen: running `dart run tools/make_markers.dart` and `flutter test` at
+  the same time makes both fail (they share the OpenCV build folder). Run
+  them one after the other.
+
+Device check (`DEVICE_CHECKS.md` WP3): pending.
+
 ## Decisions
 
 - IMU on iOS read directly from CoreMotion in `ArPlugin.swift`
@@ -229,8 +310,24 @@ Device checks (iPhone 15, release build, 2026-11-16):
   used to constrain the result.
 - WP2: time offset model `ω_c(t) = R_ci ω_i(t + δ)`; δ > 0 means IMU stamps
   lag. The ARKit pose stream (30 Hz) is used, not the 10 Hz frames.
-- Open (decide after 2.2): use the OpenCV calibration or ARKit's per-frame
-  intrinsics in the estimator.
+- WP3: estimator intrinsics are the WP2 calibration (`Documents/
+  calibration.json`, `CalibrationResult.load`), rescaled to the frame size;
+  ARKit's per-frame intrinsics when there is no calibration or the aspect
+  ratio differs. Reason: the calibration has the radial distortion ARKit does
+  not report (≈ 1.5 px at the image corners) and a measured RMS; ARKit's
+  per-frame values move only ≈ 0.1–0.4 px within a run. This settles the
+  open item from WP2.
+- WP3: the saved `detections.csv` comes from a pass over every saved frame
+  (session screen → Detect markers), not from the live overlay, which skips
+  frames while busy. Both decode the same JPEG bytes, so results are the same
+  per frame; the file is complete and reproducible.
+- WP3: ambiguity rule made concrete as "second RMS < 2 × max(best RMS,
+  0.5 px)" (spec says only "similar"); detections that fail a rule are kept
+  in the file with their status, since the rules apply to initialization
+  and the marker factor uses corners.
+- WP3: marker sheet as PDF (one A4 page per ID) rather than SVG, so ten pages
+  print in one go; the printed side is measured and entered, so printer
+  scaling does not matter.
 
 ## Open questions
 
@@ -238,5 +335,5 @@ Device checks (iPhone 15, release build, 2026-11-16):
 
 ## Next
 
-WP3 (ArUco detection and pose) after the WP2 device checks are confirmed.
-Needs printed markers (IDs 0–9 from the WP3 tool), not before.
+WP3 device check (one marker, 1 m and 2 m). Then WP4 (keyframes, baselines,
+first map), which needs printed markers IDs 0–9 on the walls.

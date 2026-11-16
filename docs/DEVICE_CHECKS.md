@@ -205,3 +205,61 @@ the ARKit values), coverage %, and `calibration.json`.
    resolves the time offset; not needed for the later packages.
 
 Report: the screenshot (or all numbers); keep the zip if convenient.
+
+## WP3: ArUco detection and pose
+
+One short check, about 10 minutes. Everything else in WP3 (corner accuracy,
+pose, rejection rules, the detections file, the marker sheet) is tested on
+the Mac with markers rendered through the phone's calibrated camera model
+(`test/aruco_detector_test.dart`). What only the phone can show: the real
+camera, the real print, the calibration in use, and that the outline lands on
+the marker in the live view.
+
+You need: one printed marker (page 1 of `docs/markers_4x4_50_ids0-9.pdf`,
+ID 0), a ruler with millimetres, a tape measure, tape, a wall, the phone and
+the Mac with a cable.
+
+### 3.0 Install the WP3 build
+
+1. Connect and unlock the phone.
+2. `cd ~/Documents/IE415/VSLAM && ~/development/flutter/bin/flutter run --release`
+3. Expected: the home screen as before; at the bottom of the camera view a
+   dark line starting "ArUco 4X4_50 · side … cm · calibrated K".
+   "calibrated K" means the WP2 calibration was found and is used; "ARKit K"
+   would mean it was not.
+
+### 3.1 Print, measure, enter the side
+
+1. Print page 1 only, any scaling (the printer's ≈ 82 % is fine).
+2. Measure the black square from its left outer edge to its right outer edge
+   in mm (expected about 123 mm at 82 %). Also measure the "100 mm" ruler
+   line.
+3. Tape the page flat on a wall with the marker centre at about chest height.
+4. In the app tap the settings row (above the tiles), set "Marker side (cm)"
+   to the measured value (e.g. `12.3`), tap "Save settings".
+5. Expected: the status line now reads "side 12.3 cm" (your value).
+
+Report: marker side mm, ruler line mm.
+
+### 3.2 Distance at 1 m and 2 m, IDs live
+
+1. Lay the tape measure on the floor straight out from the wall below the
+   marker.
+2. Stand so that the **back of the phone** is above the 1.00 m mark, phone
+   upright (portrait), back camera facing the marker, lens roughly level with
+   the marker centre. Hold still for 2 s.
+3. Expected on screen: a coloured outline along the edges of the black
+   square, a red dot on its top-left corner (the corner on the left under
+   "TOP"), and a label "ID 0  0.xxx m" or "ID 0  1.xxx m". Head-on, the label
+   may be orange with "ambiguous": that is the planar flip the spec rejects
+   for initialization; the distance is still valid. Within 3 %: 0.970 to
+   1.030 m.
+4. Screenshot (side button + volume up).
+5. Repeat at the 2.00 m mark. Within 3 %: 1.940 to 2.060 m.
+
+Report: the two screenshots (or the two distances, the outline position and
+the status line).
+
+If a distance is off by more than 3 %: first check the side entered in the
+settings (distance scales with it: 15.0 entered for a 12.3 cm print reads
+22 % too far).

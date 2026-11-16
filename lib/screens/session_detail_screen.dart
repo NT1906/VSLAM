@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix3;
 
+import '../calibration/camera_calibration.dart';
 import '../calibration/imu_alignment.dart';
 import '../calibration/session_alignment.dart';
 import '../dataset/sensor_event.dart';
 import '../dataset/session_reader.dart';
 import '../dataset/session_store.dart';
+import '../vision/session_detection.dart';
 
 /// One saved session: metadata, measured rates and counts, the first image,
 /// and rename / export / delete.
@@ -28,6 +30,8 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   late Future<SessionData> _data = SessionReader.read(_dir);
   bool _busy = false;
   ImuAlignment? _alignment;
+  DetectionSummary? _detections;
+  double? _progress;
 
   Future<void> _rename(SessionData data) async {
     final label = await showDialog<String>(
@@ -74,6 +78,20 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     if (mounted) setState(() => _alignment = result);
   });
 
+  /// Runs marker detection on every saved frame and writes
+  /// `results/detections.csv` and `results/detections.json`.
+  Future<void> _detect(SessionData data) => _run(() async {
+    final calibration = await CalibrationResult.load(widget.store.root);
+    final summary = await detectSession(
+      data,
+      calibration: calibration,
+      onProgress: (done, total) {
+        if (mounted) setState(() => _progress = done / total);
+      },
+    );
+    if (mounted) setState(() => _detections = summary);
+  });
+
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _busy = true);
     try {
@@ -81,7 +99,12 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _progress = null;
+        });
+      }
     }
   }
 
@@ -118,8 +141,12 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 const SizedBox(height: 8),
                 _InfoCard(rows: _alignmentRows(a)),
               ],
+              if (_detections case final d?) ...[
+                const SizedBox(height: 8),
+                _InfoCard(rows: _detectionRows(d)),
+              ],
               const SizedBox(height: 12),
-              if (_busy) const LinearProgressIndicator(),
+              if (_busy) LinearProgressIndicator(value: _progress),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -153,6 +180,11 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                     icon: const Icon(Icons.sync_alt),
                     label: const Text('IMU alignment'),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _detect(data),
+                    icon: const Icon(Icons.qr_code_2),
+                    label: const Text('Detect markers'),
+                  ),
                 ],
               ),
             ],
@@ -160,6 +192,29 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         },
       ),
     );
+  }
+
+  static List<(String, String)> _detectionRows(DetectionSummary d) {
+    final k = d.intrinsics;
+    return [
+      ('Frames', '${d.framesWithImage} of ${d.frames} with an image; ${d.framesWithAccepted} with an accepted marker'),
+      (
+        'Accepted',
+        d.accepted.isEmpty ? 'none' : [for (final e in d.accepted.entries) 'ID ${e.key}: ${e.value}'].join(', '),
+      ),
+      (
+        'Rejected',
+        d.rejected.isEmpty ? 'none' : [for (final e in d.rejected.entries) '${e.key}: ${e.value}'].join(', '),
+      ),
+      ('Marker side', '${(d.sideM * 100).toStringAsFixed(1)} cm (session settings)'),
+      (
+        'Intrinsics',
+        '${d.intrinsicsSource == IntrinsicsSource.calibration ? 'calibration' : 'ARKit per frame'}'
+            '${k == null ? '' : ': $k'}',
+      ),
+      ('Time per frame', '${d.meanDetectMs.toStringAsFixed(1)} ms mean, ${d.maxDetectMs.toStringAsFixed(1)} ms max'),
+      ('Saved', 'results/$detectionsFile, results/$detectionsSummaryFile'),
+    ];
   }
 
   static List<(String, String)> _alignmentRows(ImuAlignment a) {

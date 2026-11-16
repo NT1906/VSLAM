@@ -361,6 +361,17 @@ final class ArPlatformView: NSObject, FlutterPlatformView, ARSessionDelegate {
     let k = frame.camera.intrinsics
     let transform = frame.camera.transform
     let ts = plugin.epochMicros(frame.timestamp)
+    // Mapping from normalized image coordinates (0…1, origin at the top-left
+    // of capturedImage, sensor orientation) to normalized coordinates of this
+    // view, as ARSCNView draws the camera image: rotated to portrait (the UI
+    // is locked to portrait) and aspect-filled. Read on the main queue, where
+    // the view's bounds may be accessed. The Dart overlay uses it to draw
+    // detected markers on top of the camera image.
+    let viewport = sceneView.bounds.size
+    let display: [Double]? = viewport.width > 0 && viewport.height > 0
+      ? { let t = frame.displayTransform(for: .portrait, viewportSize: viewport)
+          return [Double(t.a), Double(t.b), Double(t.c), Double(t.d), Double(t.tx), Double(t.ty)] }()
+      : nil
     imageQueue.async { [weak self] in
       defer { DispatchQueue.main.async { self?.converting = false } }
       CVPixelBufferLockBaseAddress(buffer, .readOnly)
@@ -403,6 +414,7 @@ final class ArPlatformView: NSObject, FlutterPlatformView, ARSessionDelegate {
         ],
         "state": state,
       ]
+      if let display { event["disp"] = display }
       if let jpeg {
         event["jpg"] = FlutterStandardTypedData(bytes: jpeg)
         event["jpgQ"] = ArPlatformView.jpegQuality

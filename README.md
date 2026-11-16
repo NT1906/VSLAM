@@ -13,10 +13,10 @@ Development continues on the `iphone-slam` branch, iPhone only, following
 
 | Area | Status |
 |---|---|
-| Sensor acquisition | ARKit frames (960×720 gray, 10 Hz, fixed focus) with per-frame intrinsics and pose; CoreMotion accelerometer and gyroscope at 100 Hz; all on one timestamp clock. Device checks pending. |
+| Sensor acquisition | ARKit frames (960×720 gray, 10 Hz, fixed focus) with per-frame intrinsics and pose; CoreMotion accelerometer and gyroscope at 100 Hz; all on one timestamp clock. Device checks passed (WP1). |
 | Dataset save / load | **Done in code (WP1).** Every recording is saved to a session folder; sessions can be listed, opened, renamed, exported (zip) and deleted, and replayed through the same interface as live data. |
 | Calibration, time offset | **Done (WP2).** Chessboard calibration sheet (OpenCV, k1/k2 only) with ARKit comparison; camera–IMU time offset and rotation from a rotation recording (session screen → IMU alignment). Device checks passed: RMS 0.467 px; R_ci 0.10° from Apple's axes. |
-| ArUco detection | Not started (WP3). |
+| ArUco detection | **Done in code (WP3).** `DICT_4X4_50` with sub-pixel corners, IPPE pose, the spec's rejection rules; live outlines, IDs and distances on the camera view; session screen → Detect markers writes `results/detections.csv`. Marker sheet `docs/markers_4x4_50_ids0-9.pdf`. Device check pending. |
 | Estimation, map, evaluation | Not started (WP4–WP8). |
 
 ## What the app does now
@@ -31,6 +31,11 @@ Development continues on the `iphone-slam` branch, iPhone only, following
   rates, frame gaps and first image, and can be renamed, exported or deleted.
 - The diagnostics sheet (heart-monitor icon) shows AR support, tracking
   reason, image size and intrinsics, IMU readings and the device model.
+- The camera view outlines detected ArUco markers live with their ID and
+  distance (green: usable for the map, orange: rejected, with the reason).
+- The calibration sheet (grid icon) calibrates the camera from a printed
+  chessboard; the session screen runs IMU alignment and marker detection on
+  a saved session.
 
 ## Requirements
 
@@ -62,11 +67,14 @@ lib/
   core/       SE(3) poses and rotations
   dataset/    sensor events, session writer / reader / replay, session store
   slam/       AR pose / frame messages and the native AR session service
-  vision/     camera intrinsics model
+  vision/     camera model, ArUco detection + pose, detections file, marker sheet
+  calibration/ chessboard calibration, camera–IMU alignment
+  estimation/ configuration (thresholds and noise parameters)
   models/     trajectory and track point types
   services/   IMU streaming, recording session (start / stop, saving)
   screens/    home, sessions list, session detail
-  widgets/    AR camera view, status tiles, diagnostics, recording settings
+  widgets/    AR camera view, marker overlay, status tiles, diagnostics, settings
+tools/        make_board.dart (chessboard SVG), make_markers.dart (marker PDF)
 android/…/ArPlugin.kt, ArPlatformView.kt   ARCore session, pose + frame streaming
 ios/Runner/ArPlugin.swift                  ARKit session, frames + JPEG, CoreMotion IMU
 docs/       spec, handout, design, progress, device checks, experiments
@@ -82,8 +90,11 @@ flutter test
 
 The tests cover rotations, SE(3) and the camera model, AR pose parsing,
 trajectories, the recording session, the dataset format (write, read back,
-replay), the session store, and widget tests of recording and managing
-sessions. The native ARKit and CoreMotion code can only be tested on a
+replay), the session store, calibration and IMU alignment on synthetic data,
+ArUco detection on markers rendered through the calibrated camera model
+(ID, corners within 0.5 px, pose, rejection rules), the marker overlay, and
+widget tests of recording and managing sessions. OpenCV runs under
+`flutter test` on macOS. The native ARKit and CoreMotion code can only be tested on a
 device: see `docs/DEVICE_CHECKS.md`.
 
 ## Next steps

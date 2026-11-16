@@ -222,7 +222,100 @@ Tests: `test/imu_alignment_test.dart` recovers offsets of +23, −41 and
 distorted camera, checks detected corners (< 0.5 px) and recovered
 intrinsics.
 
-## 6. Implemented, configured, reused
+## 6. ArUco detection and marker pose (WP3)
+
+Code: `lib/vision/aruco_detector.dart`, `marker_observation.dart`,
+`session_detection.dart`, `marker_sheet.dart`; thresholds in
+`lib/estimation/config.dart`; overlay in `lib/widgets/marker_overlay.dart`.
+
+### 6.1 Detection
+
+Each frame's grayscale JPEG (the bytes the recorder saves, so live and
+replayed runs see the same pixels) is decoded and passed to OpenCV's
+`aruco::ArucoDetector` with dictionary `DICT_4X4_50` and
+`cornerRefinementMethod = CORNER_REFINE_SUBPIX` (other detector parameters
+are OpenCV 4.13's defaults). Corners come back in the printed marker's order
+top-left, top-right, bottom-right, bottom-left, in distorted pixel
+coordinates of the 960 × 720 sensor-orientation image. Each detection runs in
+a background isolate.
+
+### 6.2 Pose and the planar ambiguity
+
+The marker frame M has its origin at the centre of the black square, x
+right, y up, z out of the printed face (spec 4.3). For side s the object
+points are `(−s/2, s/2, 0), (s/2, s/2, 0), (s/2, −s/2, 0), (−s/2, −s/2, 0)`,
+which is also the order `SOLVEPNP_IPPE_SQUARE` requires.
+`cv::solvePnPGeneric(..., SOLVEPNP_IPPE_SQUARE)` returns both solutions of a
+planar square: the true pose and its "flip" about the line of sight. The
+rotation vector r is converted with `so3Exp(r)` (Rodrigues' formula), giving
+`cTm = (R, t)`. For each solution we compute the corner reprojection RMS with
+our own camera model, `√(Σ_j |π(cTm·p_j) − u_j|² / 4)`, where π includes k1,
+k2; the solutions are sorted by it.
+
+Intrinsics: the WP2 calibration (`Documents/calibration.json`, rescaled to the
+frame size if it differs) when it exists, ARKit's per-frame intrinsics
+otherwise (`chooseIntrinsics`). The calibration adds the radial distortion
+ARKit does not report.
+
+The printed side length s is the only scale in this problem: distance is
+proportional to s. The app takes s from the recording settings ("Marker side
+(cm)"), and the marker sheet asks for the *measured* printed side, so printer
+scaling does not enter.
+
+### 6.3 Rejection rules (spec 4.4)
+
+Applied in this order; the first failing rule is recorded as the status:
+
+| Status | Rule | Default |
+| --- | --- | --- |
+| `small` | shortest image edge < `minMarkerSidePx` | 20 px |
+| `no_pose` | PnP returned no solution | |
+| `reproj` | best RMS > `maxReprojectionRmsPx` | 2 px |
+| `angle` | angle between marker +z and the direction to the camera > `maxViewAngleDeg` | 65° |
+| `ambiguous` | second RMS < `ippeAmbiguityRatio × max(best RMS, cornerSigmaPx)` | 2 × max(best, 0.5 px) |
+
+The ambiguity rule says: the flipped pose would also fit the corners to
+within about twice the corner noise, so noise could swap the two. The floor
+at the corner noise keeps a nearly perfect best fit from making every
+alternative look much worse. Head-on views of small or distant markers are
+ambiguous by nature; in the synthetic tests a 15 cm marker at 1.5 m seen 13°
+off its normal gave RMS 0.04 px vs 0.86 px (ambiguous), at 30° 0.01 vs
+1.8 px (accepted). Distance is nearly the same for both solutions, so the
+live view still shows it for ambiguous detections. Rejected detections are
+kept in the output with their status; the rules decide which detections may
+*initialize* a marker (WP4/WP5). The estimator itself uses corner
+reprojection factors, not the PnP pose (spec 4.4).
+
+### 6.4 Output
+
+Session screen → **Detect markers** runs the detector on every saved frame
+and writes `results/detections.csv`, one row per detected marker per frame:
+`t_us, id, status, u0, v0 … u3, v3, side_px, view_deg, rms_px, tx, ty, tz,
+qx, qy, qz, qw, alt_rms_px, alt_tx … alt_qw` (poses are `cTm`, metres and a
+unit quaternion; the `alt_` columns are the second IPPE solution). `t_us`
+joins the row to `frames.csv`. `results/detections.json` holds the totals:
+frames, frames with an accepted marker, accepted per ID, rejected per
+status, mean and maximum detection time per frame, marker side and the
+intrinsics used.
+
+The live overlay on the camera view runs the same detector on the live
+frames (skipping frames while one is being processed) and draws each
+marker's outline (green accepted, orange rejected, red dot on the top-left
+corner), its ID and distance, and the rejection reason. To place image
+pixels on the portrait view it uses ARKit's
+`ARFrame.displayTransform(for: .portrait, viewportSize:)`, sent with each
+frame; the same mapping is implemented in Dart as a fallback (rotate 90°
+clockwise, aspect-fill).
+
+### 6.5 Marker sheet
+
+`dart run tools/make_markers.dart` writes
+`docs/markers_4x4_50_ids0-9.pdf`: one A4 page per ID 0–9, a 150 mm black
+square (cells from `cv::aruco::generateImageMarker`, so the print is exactly
+what the detector decodes), an ID label, a TOP mark and a 100 mm ruler line.
+The PDF is written by hand (vector rectangles, Helvetica), no dependency.
+
+## 7. Implemented, configured, reused
 
 | Component | Status | Notes |
 | --- | --- | --- |
@@ -236,3 +329,7 @@ intrinsics.
 | Chessboard detection, calibration | reused (OpenCV via `dartcv4` 2.3.1), configured | flags in 5.1 |
 | Board generator | implemented | `tools/make_board.dart` |
 | Time offset and camera–IMU rotation | implemented (Dart) | `lib/calibration/imu_alignment.dart` |
+| ArUco detection, sub-pixel corners, IPPE PnP | reused (OpenCV via `dartcv4`), configured | `DICT_4X4_50`, `CORNER_REFINE_SUBPIX`, `SOLVEPNP_IPPE_SQUARE` |
+| Rejection rules, reprojection RMS, detections file | implemented (Dart) | `lib/vision/`, thresholds in `lib/estimation/config.dart` |
+| Live marker overlay | implemented (Dart), ARKit `displayTransform` reused | `lib/widgets/marker_overlay.dart` |
+| Marker sheet generator | implemented | `tools/make_markers.dart`, hand-written PDF |

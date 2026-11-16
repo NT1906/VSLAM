@@ -23,6 +23,7 @@ class ArFrame {
     this.jpegQuality,
     this.sourceWidth,
     this.sourceHeight,
+    this.displayTransform,
   });
 
   /// Capture time on the shared sensor clock (epoch µs; on iOS the same
@@ -49,6 +50,14 @@ class ArFrame {
   final int? sourceWidth;
   final int? sourceHeight;
 
+  /// ARKit's `displayTransform(for: .portrait, viewportSize:)` for the camera
+  /// view, as `[a, b, c, d, tx, ty]` of a `CGAffineTransform`: maps
+  /// normalized image coordinates (0…1 from the top-left of this image) to
+  /// normalized view coordinates, the way the camera image is drawn
+  /// (rotated to portrait, aspect-filled). Null before the view has a size
+  /// and on platforms that do not send it.
+  final List<double>? displayTransform;
+
   bool get tracking => state == ArTrackingState.tracking && translation != null && rotation != null;
 
   /// `vTc` for the estimator, or null when not tracking.
@@ -56,7 +65,7 @@ class ArFrame {
 
   /// Parses a `vslam/ar_frames` event:
   /// `{ts, w, h, y: bytes, k: [fx, fy, cx, cy], state, t?, q?, jpg?, jpgQ?,
-  /// srcW?, srcH?}`.
+  /// srcW?, srcH?, disp?}`.
   factory ArFrame.fromMap(Map<Object?, Object?> map, DateTime received) {
     final w = (map['w'] as num).toInt();
     final h = (map['h'] as num).toInt();
@@ -77,6 +86,7 @@ class ArFrame {
       jpegQuality: (map['jpgQ'] as num?)?.toDouble(),
       sourceWidth: (map['srcW'] as num?)?.toInt(),
       sourceHeight: (map['srcH'] as num?)?.toInt(),
+      displayTransform: (map['disp'] as List?)?.map((e) => (e as num).toDouble()).toList(),
     );
   }
 }
