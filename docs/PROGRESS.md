@@ -114,7 +114,7 @@ Bugs the widget tests caught and fixed: rename dialog disposed its text
 controller during the closing animation; the sessions list called `setState`
 with a closure returning a Future.
 
-### WP2 calibration, IMU timing and alignment: done in code, device checks pending
+### WP2 calibration, IMU timing and alignment: done, device checks passed
 
 Done:
 - `dartcv4` 2.3.1 added (CMake 4 via Homebrew). Modules in `pubspec.yaml`:
@@ -197,7 +197,12 @@ Device checks (iPhone 15, release build, 2026-11-16):
   gyroscope through Apple's factory camera–IMU calibration, so the
   agreement checks our conventions and the shared clock rather than giving
   an independent extrinsic calibration.
-- 2.3 second run (faster swings): pending.
+- 2.3 second run: skipped (user's time). Not needed downstream: the gyro
+  check compares rotations between keyframes ≥ 0.25 s apart, where an offset
+  of a few ms is negligible. The estimator uses offset 0 with R_ci =
+  `appleCameraFromDevice` (or the measured R_ci, 0.10° apart).
+- WP2 device checks: **done** (2026-11-16): 2.0, 2.1, 2.2 pass; 2.3 passes for
+  the rotation, the offset is bounded only ("no large offset").
 
 ## Decisions
 

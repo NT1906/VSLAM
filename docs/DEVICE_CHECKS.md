@@ -201,7 +201,7 @@ the ARKit values), coverage %, and `calibration.json`.
    If it says "Not enough rotation", record again rotating more.
 6. Screenshot the card. Tap Export and AirDrop the zip to the Mac; keep it
    (it contains `results/imu_alignment.json`).
-7. Repeat steps 1–6 once more with label `wp2-rotation-2`.
-   Expected: offsets agree within a few ms, angles to Apple within ~1°.
+7. Optional: a second run with faster swings (mean rate above 1 rad/s)
+   resolves the time offset; not needed for the later packages.
 
-Report: both screenshots (or all numbers), both zips kept.
+Report: the screenshot (or all numbers); keep the zip if convenient.
