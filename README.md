@@ -16,7 +16,7 @@ Development continues on the `iphone-slam` branch, iPhone only, following
 | Sensor acquisition | ARKit frames (960×720 gray, 10 Hz, fixed focus) with per-frame intrinsics and pose; CoreMotion accelerometer and gyroscope at 100 Hz; all on one timestamp clock. Device checks passed (WP1). |
 | Dataset save / load | **Done in code (WP1).** Every recording is saved to a session folder; sessions can be listed, opened, renamed, exported (zip) and deleted, and replayed through the same interface as live data. |
 | Calibration, time offset | **Done (WP2).** Chessboard calibration sheet (OpenCV, k1/k2 only) with ARKit comparison; camera–IMU time offset and rotation from a rotation recording (session screen → IMU alignment). Device checks passed: RMS 0.467 px; R_ci 0.10° from Apple's axes. |
-| ArUco detection | **Done in code (WP3).** `DICT_4X4_50` with sub-pixel corners, IPPE pose, the spec's rejection rules; live outlines, IDs and distances on the camera view; session screen → Detect markers writes `results/detections.csv`. Marker sheet `docs/markers_4x4_50_ids0-9.pdf`. Device check pending. |
+| ArUco detection | **Done in code (WP3).** `DICT_4X4_50` with sub-pixel corners, IPPE pose, the spec's rejection rules; live outlines, IDs and distances on the camera view; session screen → Detect markers writes `results/detections.csv`. Marker sheet `docs/markers_4x4_50_ids0-9.pdf`. Device check passed: 1.006 m at 1 m, 2.058 m at 2 m. |
 | Estimation, map, evaluation | Not started (WP4–WP8). |
 
 ## What the app does now

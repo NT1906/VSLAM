@@ -204,7 +204,7 @@ Device checks (iPhone 15, release build, 2026-11-16):
 - WP2 device checks: **done** (2026-11-16): 2.0, 2.1, 2.2 pass; 2.3 passes for
   the rotation, the offset is bounded only ("no large offset").
 
-### WP3 ArUco detection and pose: done in code, device check pending
+### WP3 ArUco detection and pose: done, device check passed
 
 Done:
 - `lib/vision/aruco_detector.dart`: OpenCV `ArucoDetector`, `DICT_4X4_50`,
@@ -283,7 +283,29 @@ Found and worked around: dartcv4 2.3.1 link-hook bug.
   the same time makes both fail (they share the OpenCV build folder). Run
   them one after the other.
 
-Device check (`DEVICE_CHECKS.md` WP3): pending.
+Device check (iPhone 15, release build, 2026-11-16), user's screenshots:
+- 3.0: installs; status line "ArUco 4X4_50 · side 15.0 cm · calibrated K",
+  so `Documents/calibration.json` is found and used. Detection 8–11 ms per
+  frame on the phone.
+- 3.1: page 1 (ID 0) printed at 100 % this time (not 82 %): one cell 25 mm,
+  black square 150 mm (6 cells). Ruler line not reported. Side left at the
+  default 15.0 cm. Taped on a white sheet on the wall.
+- Live overlay: outline on the black square's edges, red dot on the top-left
+  corner (next to "ID 0"), ID 0 read correctly; green (accepted) at 1 m,
+  orange "ambiguous" at 2 m roughly head-on, as expected (DESIGN 6.3).
+- 3.2, distance measured with the tape from the marker centre to the lens:
+  **1.006 m at 1.00 m (+0.6 %)**, **2.058 m at 2.00 m (+2.9 %)**. Both within
+  3 %; the 2 m result is near the limit (hand-held, tape-to-lens placement
+  of about ±1–2 cm is ±0.5–1 % there).
+- Discarded attempts: 0.538 m with the page hand-held and curling (distance
+  not measured), and 0.928 m with the phone below and to the side of the
+  marker over the bed (how 1 m was measured is unknown; it was not the
+  straight line to the marker centre). Not used.
+- Seen, not a WP3 issue: ARKit showed "Relocalizing" / limited with 0 of 76
+  poses tracked during the 1 m and 2 m screenshots (plain wall). Marker
+  detection does not use ARKit's pose; recordings for WP4 need "SLAM
+  tracking", i.e. a textured scene and a slow start.
+- WP3 device check: **passes** (2026-11-16).
 
 ## Decisions
 
@@ -335,5 +357,6 @@ Device check (`DEVICE_CHECKS.md` WP3): pending.
 
 ## Next
 
-WP3 device check (one marker, 1 m and 2 m). Then WP4 (keyframes, baselines,
-first map), which needs printed markers IDs 0–9 on the walls.
+WP4 (keyframes, baselines, first map). Needs the markers (IDs 0–9, all
+printed at the same scaling, one side measured) on the walls, and recordings
+with ARKit in "SLAM tracking".
