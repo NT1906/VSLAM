@@ -163,7 +163,26 @@ Checks (2026-11-16):
   axes are only an image on the `CMMotionManager` page that would not load;
   device +z out of the screen is confirmed by check 1.3.
 
-Device checks 2.0–2.3: **pending** (user).
+Device checks (iPhone 15, release build, 2026-11-16):
+- 2.0: `flutter run --release` installs; grid icon present, "SLAM tracking".
+  First attempt failed with "No supported devices" (phone not connected /
+  unavailable in `devicectl`); fine after reconnecting.
+- Found on the device and fixed: the number pad covered the whole sheet
+  (no Done key, field hidden), the size went back to 25.0 mm after closing
+  the sheet (3 views captured at 25.0 were undone), a tap on the camera view
+  closed the sheet. Commits `58875e7`, `71f1331`, `a0fa3a6`.
+- 2.1: printed with the printer scaling the page: 10 squares = 206 mm, square
+  20.6 mm (≈ 82 % of the nominal 25 mm). Used as printed; the square size
+  does not enter fx, fy, cx, cy, k1, k2. Ruler line not reported.
+- 2.2: 18 views (3 head-on, 4 tilted, 4 corners, 4 edges, 3 rolled), all 54
+  corners each, coverage 92 %, square 20.6 mm. Close views were blurred
+  (fixed focus since WP1), so no view closer than ≈ 35 cm.
+  Result: **RMS 0.467 px**; OpenCV fx 716.5, fy 714.8, cx 473.0, cy 357.4,
+  k1 0.0715, k2 −0.1411; ARKit mean fx = fy 721.3, cx 478.5, cy 360.7;
+  differences −4.8, −6.5, −5.4, −3.2 px (fx −0.67 %, fy −0.90 %).
+  Passes (RMS < 0.5, focal within 1–2 %, principal point within a few px);
+  RMS is near the limit, a stiffer board would likely lower it.
+- 2.3: pending.
 
 ## Decisions
 
