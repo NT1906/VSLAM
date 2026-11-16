@@ -51,7 +51,13 @@ class _CalibrationPanelState extends State<CalibrationPanel> {
   void initState() {
     super.initState();
     _documents().then(CalibrationResult.load).then((r) {
-      if (mounted) setState(() => _saved = r);
+      if (!mounted) return;
+      setState(() {
+        _saved = r;
+        // Start from the board size of the last calibration, so reopening the
+        // sheet does not fall back to the nominal 25 mm.
+        if (r != null && _views.isEmpty) _square.text = (r.board.squareM * 1000).toStringAsFixed(1);
+      });
     }).catchError((Object e) {
       if (mounted) setState(() => _status = 'Could not read the saved calibration: $e');
     });

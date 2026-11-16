@@ -53,6 +53,7 @@ void main() {
     expect(calibrate.onPressed, isNull);
     expect(find.textContaining('0 views (15–20)'), findsOneWidget);
     // Typing a square size shows the value captures will use.
+    // The saved calibration's board size is filled in.
     expect(find.text('Captures will use 25.0 mm'), findsOneWidget);
     await tester.enterText(find.byType(TextField), '20.6');
     await tester.pump();
