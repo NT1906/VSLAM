@@ -112,7 +112,13 @@ class _CalibrationPanelState extends State<CalibrationPanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('Camera calibration', style: theme.textTheme.titleMedium),
+        Row(
+          children: [
+            Expanded(child: Text('Camera calibration', style: theme.textTheme.titleMedium)),
+            if (Navigator.of(context).canPop())
+              TextButton(onPressed: () => Navigator.of(context).maybePop(), child: const Text('Close')),
+          ],
+        ),
         const SizedBox(height: 8),
         Row(
           children: [

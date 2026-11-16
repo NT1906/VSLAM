@@ -82,9 +82,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               showDragHandle: true,
               isScrollControlled: true,
               barrierColor: Colors.transparent,
-              builder: (_) => const SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(12, 0, 12, 24),
-                child: CalibrationPanel(),
+              // Captured views live in the panel: only its Close button
+              // dismisses it, not a stray tap on the camera view or a drag.
+              isDismissible: false,
+              enableDrag: false,
+              // Lift the panel above the on-screen keyboard.
+              builder: (sheetContext) => SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(12, 0, 12, 24 + MediaQuery.viewInsetsOf(sheetContext).bottom),
+                child: const CalibrationPanel(),
               ),
             ),
           ),
