@@ -11,15 +11,27 @@ import '../calibration/session_alignment.dart';
 import '../dataset/sensor_event.dart';
 import '../dataset/session_reader.dart';
 import '../dataset/session_store.dart';
+import '../estimation/keyframe_selector.dart';
+import '../estimation/session_baselines.dart';
+import '../mapping/marker_map.dart';
+import '../vision/aruco_detector.dart';
 import '../vision/session_detection.dart';
 
 /// One saved session: metadata, measured rates and counts, the first image,
 /// and rename / export / delete.
 class SessionDetailScreen extends StatefulWidget {
-  const SessionDetailScreen({super.key, required this.store, required this.directory});
+  const SessionDetailScreen({
+    super.key,
+    required this.store,
+    required this.directory,
+    this.detector = const ArucoMarkerDetector(),
+  });
 
   final SessionStore store;
   final Directory directory;
+
+  /// Used by Detect markers and by Build map when detection has not run.
+  final MarkerDetector detector;
 
   @override
   State<SessionDetailScreen> createState() => _SessionDetailScreenState();
@@ -31,12 +43,14 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   bool _busy = false;
   ImuAlignment? _alignment;
   DetectionSummary? _detections;
+  BaselineRun? _baselines;
+  String? _savedMap;
   double? _progress;
 
   Future<void> _rename(SessionData data) async {
     final label = await showDialog<String>(
       context: context,
-      builder: (_) => _RenameDialog(initial: data.meta.settings.label),
+      builder: (_) => _TextDialog(title: 'Rename session', label: 'Label', initial: data.meta.settings.label, action: 'Rename'),
     );
     if (label == null || label.isEmpty) return;
     await _run(() async {
@@ -85,12 +99,46 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
     final summary = await detectSession(
       data,
       calibration: calibration,
+      detector: widget.detector,
       onProgress: (done, total) {
         if (mounted) setState(() => _progress = done / total);
       },
     );
     if (mounted) setState(() => _detections = summary);
   });
+
+  /// WP4: keyframes, baseline 1 (ARKit), baseline 2 (IMU) and the first
+  /// marker map; runs marker detection first when it has not been run.
+  Future<void> _buildMap(SessionData data) => _run(() async {
+    final calibration = await CalibrationResult.load(widget.store.root);
+    final run = await processSessionBaselines(
+      data,
+      calibration: calibration,
+      detector: widget.detector,
+      onProgress: (f) {
+        if (mounted) setState(() => _progress = f);
+      },
+    );
+    if (mounted) {
+      setState(() {
+        _baselines = run;
+        _savedMap = null;
+      });
+    }
+  });
+
+  /// Saves the map just built as `maps/<room>.json`.
+  Future<void> _saveMap(BaselineRun run) async {
+    final room = await showDialog<String>(
+      context: context,
+      builder: (_) => const _TextDialog(title: 'Save map', label: 'Room name', initial: 'room', action: 'Save'),
+    );
+    if (room == null || room.isEmpty) return;
+    await _run(() async {
+      final file = await MapStore(widget.store.root).save(room, run.map);
+      if (mounted) setState(() => _savedMap = 'maps/${file.uri.pathSegments.last}');
+    });
+  }
 
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _busy = true);
@@ -145,6 +193,10 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                 const SizedBox(height: 8),
                 _InfoCard(rows: _detectionRows(d)),
               ],
+              if (_baselines case final b?) ...[
+                const SizedBox(height: 8),
+                _InfoCard(rows: _baselineRows(b, _savedMap)),
+              ],
               const SizedBox(height: 12),
               if (_busy) LinearProgressIndicator(value: _progress),
               const SizedBox(height: 8),
@@ -185,6 +237,17 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                     icon: const Icon(Icons.qr_code_2),
                     label: const Text('Detect markers'),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _buildMap(data),
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('Build map'),
+                  ),
+                  if (_baselines case final b?)
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : () => _saveMap(b),
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text('Save map'),
+                    ),
                 ],
               ),
             ],
@@ -214,6 +277,60 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       ),
       ('Time per frame', '${d.meanDetectMs.toStringAsFixed(1)} ms mean, ${d.maxDetectMs.toStringAsFixed(1)} ms max'),
       ('Saved', 'results/$detectionsFile, results/$detectionsSummaryFile'),
+    ];
+  }
+
+  static List<(String, String)> _baselineRows(BaselineRun b, String? savedMap) {
+    String cm(double m) => '${(m * 100).toStringAsFixed(1)} cm';
+    final reasons = b.reasonCounts;
+    final imu = b.imu;
+    final end = b.arkit.last.translation;
+    return [
+      (
+        'Keyframes',
+        '${b.keyframes.length} from ${b.trackedFrames} tracked of ${b.frames} frames '
+            '(move ${reasons[KeyframeReason.translation]}, turn ${reasons[KeyframeReason.rotation]}, '
+            'marker ${reasons[KeyframeReason.marker]}); ${b.trackingGaps} tracking gaps',
+      ),
+      (
+        'ARKit (b1)',
+        'path ${b.pathLengthM.toStringAsFixed(2)} m, end at '
+            '(${end.x.toStringAsFixed(2)}, ${end.y.toStringAsFixed(2)}, ${end.z.toStringAsFixed(2)}) m in W',
+      ),
+      if (imu == null)
+        ('IMU (b2)', b.imuMissing ?? 'not run')
+      else ...[
+        (
+          'IMU rest',
+          '${imu.restFound ? 'still' : 'NOT still (biases set to 0)'}: '
+              '${((imu.rest.t0Us - b.keyframes.first.tUs) / 1e6).toStringAsFixed(1)}–'
+              '${((imu.rest.t1Us - b.keyframes.first.tUs) / 1e6).toStringAsFixed(1)} s after the first keyframe, '
+              'gyro σ ${imu.rest.gyroStd.toStringAsFixed(4)} rad/s, acc σ ${imu.rest.accStd.toStringAsFixed(3)} m/s²',
+        ),
+        (
+          'IMU biases',
+          'b_g (${[for (final v in imu.rest.bg.storage) v.toStringAsFixed(4)].join(', ')}) rad/s, '
+              'b_a (${[for (final v in imu.rest.ba.storage) v.toStringAsFixed(3)].join(', ')}) m/s²',
+        ),
+        (
+          'IMU vs ARKit',
+          b.imuDriftRows.isEmpty
+              ? 'no keyframe after the IMU start'
+              : [for (final (s, d) in b.imuDriftRows) '${s.toStringAsFixed(1)} s: ${cm(d)}'].join(', '),
+        ),
+      ],
+      (
+        'Markers',
+        b.map.markers.isEmpty
+            ? 'none placed'
+            : [
+                for (final m in b.map.markers)
+                  'ID ${m.id}: (${m.wTm.translation.x.toStringAsFixed(2)}, ${m.wTm.translation.y.toStringAsFixed(2)}, '
+                      '${m.wTm.translation.z.toStringAsFixed(2)}) m, ${m.keyframeObservations} kf obs',
+              ].join('\n'),
+      ),
+      if (b.unplacedIds.isNotEmpty) ('Not placed', 'IDs ${b.unplacedIds.join(', ')} (no accepted detection in a keyframe)'),
+      ('Saved', 'results/$trajArkitFile, $trajImuFile, $mapFile, $baselinesSummaryFile${savedMap == null ? '' : '; $savedMap'}'),
     ];
   }
 
@@ -349,16 +466,19 @@ class _InfoCard extends StatelessWidget {
 
 /// Owns its text controller so the controller lives exactly as long as the
 /// dialog (including its closing animation).
-class _RenameDialog extends StatefulWidget {
-  const _RenameDialog({required this.initial});
+class _TextDialog extends StatefulWidget {
+  const _TextDialog({required this.title, required this.label, required this.initial, required this.action});
 
+  final String title;
+  final String label;
   final String initial;
+  final String action;
 
   @override
-  State<_RenameDialog> createState() => _RenameDialogState();
+  State<_TextDialog> createState() => _TextDialogState();
 }
 
-class _RenameDialogState extends State<_RenameDialog> {
+class _TextDialogState extends State<_TextDialog> {
   late final _controller = TextEditingController(text: widget.initial);
 
   @override
@@ -370,15 +490,15 @@ class _RenameDialogState extends State<_RenameDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Rename session'),
+      title: Text(widget.title),
       content: TextField(
         controller: _controller,
         autofocus: true,
-        decoration: const InputDecoration(labelText: 'Label'),
+        decoration: InputDecoration(labelText: widget.label),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(context, _controller.text.trim()), child: const Text('Rename')),
+        FilledButton(onPressed: () => Navigator.pop(context, _controller.text.trim()), child: Text(widget.action)),
       ],
     );
   }

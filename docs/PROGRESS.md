@@ -307,6 +307,67 @@ Device check (iPhone 15, release build, 2026-11-16), user's screenshots:
   tracking", i.e. a textured scene and a slow start.
 - WP3 device check: **passes** (2026-11-16).
 
+### WP4 keyframes, baselines, first map: done in code, device check pending
+
+Done:
+- `lib/estimation/keyframe_selector.dart`: `KeyframeSelector` (per frame,
+  usable live), reasons first / move / turn / marker, tracking-gap flag;
+  `OdometryEdge` `Z_k = vTc_k⁻¹ · vTc_k+1`.
+- `lib/estimation/imu_propagator.dart`: state `[p, v, q, b_a, b_g]`,
+  strapdown step (exact for constant ω and constant world acceleration),
+  rest-window search and bias estimation.
+- `lib/estimation/baselines.dart`: W from the first keyframe
+  (`worldFromVio`), baseline 1 by chaining odometry, baseline 2
+  (`runImuBaseline`), IMU-vs-ARKit distance at fixed horizons.
+- `lib/mapping/marker_map.dart`: first-sight map `wTm = wTc_k · cTm`,
+  `MarkerMap` JSON (format `vslam-marker-map` v1), `MapStore`
+  (`maps/<room>.json`). (Spec 8 lists `marker_map` and `map_store` as two
+  files; they are one small file here.)
+- `lib/estimation/session_baselines.dart`: the session step, writes
+  `results/traj_arkit.csv`, `traj_imu.csv`, `map.json`, `baselines.json`;
+  runs detection first when `detections.csv` is missing.
+- Session screen: **Build map** (result card) and **Save map** (room name
+  dialog). The rename dialog became a general text dialog.
+- `SlamConfig`: keyframe 0.25 m / 15° / 0.3 s, usable statuses
+  {ok, ambiguous}, g 9.80665, rest window 2 s searched over 15 s, still if
+  σ_gyro < 0.03 rad/s and σ_acc < 0.15 m/s².
+- `test/support/simulator.dart`: `RoomSimulation` (spec 6 simulator, for
+  WP5 too). Named `RoomSimulation` because Flutter's material library
+  exports a `Simulation` class.
+- Docs: `DESIGN.md` section 7 (method and equations) and table (now 8),
+  README status, `DEVICE_CHECKS.md` WP4.
+
+Checks (2026-11-16):
+- `flutter analyze`: no issues.
+- `flutter test`: 96 pass (72 before + 24 new), run twice (before and after
+  the release build).
+- `flutter build ios --debug --no-codesign` and
+  `flutter build ios --release --no-codesign`: pass; the keep-list file was
+  gone after the release build (build phase works).
+- Simulator results (synthetic, seeds fixed), two laps ≈ 21.5 m, 135
+  keyframes:
+  - Perfect odometry, noise-free IMU with biases: baseline 1 equals the truth
+    to 1e-9 m through the files; rest window found at the first keyframe,
+    biases recovered (b_a within 1e-6, b_g within 1e-9); IMU dead reckoning
+    within 0.17 cm of the truth over the whole walk (this checks R_ci, the
+    gravity sign and the specific-force convention end to end); all 8
+    markers placed, position error mean 0.99 cm, max 2.30 cm, normal
+    error mean 2.0°, max 5.1° (thresholds 2 cm / 5 cm / 5° / 10°, set before
+    the run).
+  - Drifting odometry (1 % scale, 0.24°/m): chained odometry equals
+    `wTv · vTc_k`; endpoint 17.1 cm off the truth; all 8 markers placed.
+  - Device-like IMU noise (σ 0.02 m/s², 0.002 rad/s): distance to truth
+    0.2 cm at 1 s, 3.3 cm at 5.2 s, 21 cm at 10.6 s, 89 cm at 20.5 s,
+    2.2 m at 30 s, 5.7 m at 45 s.
+- Test errors fixed (code unchanged): the map round-trip test first
+  required byte-identical re-saved JSON, but quaternion → matrix →
+  quaternion changes the last digit (1e-16), so it now compares poses
+  (1e-12); the widget test tapped before a scroll settled and needed to
+  scroll a lazily built button into view.
+
+Device check: pending (`DEVICE_CHECKS.md` WP4: one ~90 s recording with
+markers 0–4 on the walls, Build map, Save map, export).
+
 ## Decisions
 
 - IMU on iOS read directly from CoreMotion in `ArPlugin.swift`
@@ -351,12 +412,23 @@ Device check (iPhone 15, release build, 2026-11-16), user's screenshots:
   print in one go; the printed side is measured and entered, so printer
   scaling does not matter.
 
+- WP4: W in mapping mode has x along the first keyframe's horizontal
+  viewing direction (spec only says "gravity-aligned frame").
+- WP4: a detection makes a keyframe when its status is `ok` or `ambiguous`
+  (corners usable); only `ok` places a marker, and only in a keyframe, so
+  every placed marker has a keyframe for WP5's factors.
+- WP4: the IMU baseline starts at the end of the first still window after
+  the first keyframe (not at keyframe 0), from ARKit's pose with v = 0, so a
+  recording where the person moves before holding still still works.
+- WP4: trajectories are written at keyframes (what WP5 optimizes and WP8
+  compares); the IMU one from its start onward.
+
 ## Open questions
 
 - Answered: iPhone 15 (`iPhone15,4`), ARKit image 1920×1440 → 960×720.
 
 ## Next
 
-WP4 (keyframes, baselines, first map). Needs the markers (IDs 0–9, all
-printed at the same scaling, one side measured) on the walls, and recordings
-with ARKit in "SLAM tracking".
+WP4 device check (see `DEVICE_CHECKS.md` WP4), then WP5 (pose-graph
+optimizer). Add a replay regression test on the exported WP4 recording
+(spec 6), kept outside git.

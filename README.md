@@ -17,7 +17,8 @@ Development continues on the `iphone-slam` branch, iPhone only, following
 | Dataset save / load | **Done in code (WP1).** Every recording is saved to a session folder; sessions can be listed, opened, renamed, exported (zip) and deleted, and replayed through the same interface as live data. |
 | Calibration, time offset | **Done (WP2).** Chessboard calibration sheet (OpenCV, k1/k2 only) with ARKit comparison; camera–IMU time offset and rotation from a rotation recording (session screen → IMU alignment). Device checks passed: RMS 0.467 px; R_ci 0.10° from Apple's axes. |
 | ArUco detection | **Done in code (WP3).** `DICT_4X4_50` with sub-pixel corners, IPPE pose, the spec's rejection rules; live outlines, IDs and distances on the camera view; session screen → Detect markers writes `results/detections.csv`. Marker sheet `docs/markers_4x4_50_ids0-9.pdf`. Device check passed: 1.006 m at 1 m, 2.058 m at 2 m. |
-| Estimation, map, evaluation | Not started (WP4–WP8). |
+| Keyframes, baselines, first map | **Done in code (WP4), device check pending.** Session screen → Build map: keyframes (0.25 m / 15° / marker ≥ 0.3 s), baseline 1 (ARKit odometry chained), baseline 2 (IMU dead reckoning, biases from a still window), each marker placed at first sight; writes `results/traj_arkit.csv`, `traj_imu.csv`, `map.json`; Save map → `maps/<room>.json`. Tested on simulated recordings. |
+| Pose-graph optimizer, relocalization, map view, evaluation | Not started (WP5–WP8). |
 
 ## What the app does now
 
@@ -36,6 +37,11 @@ Development continues on the `iphone-slam` branch, iPhone only, following
 - The calibration sheet (grid icon) calibrates the camera from a printed
   chessboard; the session screen runs IMU alignment and marker detection on
   a saved session.
+- The session screen's **Build map** selects keyframes, computes the
+  ARKit-only and IMU-only baselines and a first marker map, and shows
+  keyframe counts, the IMU rest window and biases, how far the IMU drifts
+  from ARKit, and each marker's position; **Save map** stores the map under
+  `Documents/maps/`.
 
 ## Requirements
 
@@ -69,7 +75,8 @@ lib/
   slam/       AR pose / frame messages and the native AR session service
   vision/     camera model, ArUco detection + pose, detections file, marker sheet
   calibration/ chessboard calibration, camera–IMU alignment
-  estimation/ configuration (thresholds and noise parameters)
+  estimation/ configuration, keyframes, baselines (ARKit, IMU dead reckoning)
+  mapping/    marker map, map files
   models/     trajectory and track point types
   services/   IMU streaming, recording session (start / stop, saving)
   screens/    home, sessions list, session detail
@@ -92,11 +99,14 @@ The tests cover rotations, SE(3) and the camera model, AR pose parsing,
 trajectories, the recording session, the dataset format (write, read back,
 replay), the session store, calibration and IMU alignment on synthetic data,
 ArUco detection on markers rendered through the calibrated camera model
-(ID, corners within 0.5 px, pose, rejection rules), the marker overlay, and
+(ID, corners within 0.5 px, pose, rejection rules), the marker overlay,
+keyframe selection on scripted paths, IMU propagation against closed forms,
+map files, the WP4 pipeline end to end on a simulated room walk
+(`test/support/simulator.dart`), and
 widget tests of recording and managing sessions. OpenCV runs under
 `flutter test` on macOS. The native ARKit and CoreMotion code can only be tested on a
 device: see `docs/DEVICE_CHECKS.md`.
 
 ## Next steps
 
-See `docs/SPEC.md` section 5 (work packages WP2–WP8) and `docs/PROGRESS.md`.
+See `docs/SPEC.md` section 5 (work packages WP5–WP8) and `docs/PROGRESS.md`.

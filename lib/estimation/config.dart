@@ -2,8 +2,8 @@
 /// place (spec section 4.4). Values are starting points; they are tuned on
 /// recorded data and the tuned values are reported in `docs/PROGRESS.md`.
 ///
-/// WP3 adds the marker-detection part. Later packages add keyframe, factor
-/// and solver parameters to this class.
+/// WP3 added the marker-detection part, WP4 the keyframe and IMU
+/// dead-reckoning part. Later packages add factor and solver parameters.
 class SlamConfig {
   const SlamConfig({
     this.minMarkerSidePx = 20,
@@ -11,6 +11,15 @@ class SlamConfig {
     this.maxReprojectionRmsPx = 2.0,
     this.ippeAmbiguityRatio = 2.0,
     this.cornerSigmaPx = 0.5,
+    this.keyframeTranslationM = 0.25,
+    this.keyframeRotationDeg = 15,
+    this.keyframeMarkerGapS = 0.3,
+    this.keyframeMarkerStatuses = const {'ok', 'ambiguous'},
+    this.gravity = 9.80665,
+    this.imuRestSeconds = 2.0,
+    this.imuRestSearchSeconds = 15.0,
+    this.imuRestMaxGyroStd = 0.03,
+    this.imuRestMaxAccStd = 0.15,
   });
 
   /// A detection is rejected when its shortest image edge is shorter than
@@ -41,6 +50,50 @@ class SlamConfig {
   /// (spec section 4.4). Used here for the ambiguity floor; the marker
   /// factor (WP5) uses it as its measurement noise.
   final double cornerSigmaPx;
+
+  // ---- Keyframes (spec 4.4, WP4) ----------------------------------------
+
+  /// A tracked frame becomes a keyframe when the camera has moved at least
+  /// this far (metres) since the previous keyframe.
+  final double keyframeTranslationM;
+
+  /// ... or turned at least this much (degrees, angle of the relative
+  /// rotation) since the previous keyframe.
+  final double keyframeRotationDeg;
+
+  /// ... or it has a usable marker detection and at least this many seconds
+  /// have passed since the previous keyframe.
+  final double keyframeMarkerGapS;
+
+  /// Detection statuses (`detections.csv`) that count as "a marker
+  /// detection" for the keyframe rule. `ok` and `ambiguous` both have good
+  /// corners (ambiguous only means the PnP pose is not unique, which the
+  /// reprojection factor of WP5 does not need); `small`, `no_pose` and
+  /// `reproj` do not, and `angle` (grazing view) gives foreshortened corners.
+  final Set<String> keyframeMarkerStatuses;
+
+  // ---- IMU dead reckoning (spec 4.6, baseline 2) ---------------------------
+
+  /// Magnitude of gravity, m/s². The accelerometer bias estimated at rest
+  /// absorbs the difference to the local value.
+  final double gravity;
+
+  /// Length of the at-rest window the biases are estimated from, seconds.
+  final double imuRestSeconds;
+
+  /// The at-rest window is searched from the first keyframe (ARKit
+  /// tracking, so the orientation is known) up to this many seconds later.
+  final double imuRestSearchSeconds;
+
+  /// A window counts as "at rest" when the largest per-axis standard
+  /// deviation of the gyroscope is below this (rad/s) ...
+  final double imuRestMaxGyroStd;
+
+  /// ... and that of the accelerometer below this (m/s²). On the iPhone 15
+  /// lying on a table both were ≈ 0.001 rad/s and 0.007 m/s² (check 1.3);
+  /// the limits leave room for a phone held still by hand, while walking
+  /// gives about ten times more.
+  final double imuRestMaxAccStd;
 
   /// Ambiguity threshold on the second solution's RMS for a best RMS of
   /// [bestRms].

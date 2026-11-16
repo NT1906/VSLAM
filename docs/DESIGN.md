@@ -10,6 +10,9 @@ One Flutter app on the iPhone does acquisition, storage, replay and (in later
 packages) processing and display. Native Swift code (`ios/Runner/ArPlugin.swift`)
 owns the ARKit session and CoreMotion; everything after acquisition is Dart.
 
+Processing a saved session so far: Detect markers (section 6) → Build
+map (section 7: keyframes, two baselines, first marker map).
+
 ```
 ARKit session ──► ArPlugin.swift ──► vslam/ar_pose   (ARKit pose, ~30 Hz)
   (camera,         box filter,   ──► vslam/ar_frames (960×720 gray + JPEG +
@@ -34,11 +37,11 @@ re-processed with exactly the code that ran live.
 
 | Symbol | Frame | Definition |
 | --- | --- | --- |
-| W | room / map | z up; defined in later packages (mapping or anchoring mode) |
+| W | room / map | z up. Mapping mode (WP4): the first keyframe's gravity-aligned frame, origin at its camera centre, x along the horizontal viewing direction (`worldFromVio`). Anchoring mode: WP6 |
 | V | VIO world | ARKit world rotated to z up: `arPoseToVio` in `lib/slam/ar_pose.dart` |
 | C_k | camera | OpenCV convention: x right, y down, z forward, in the landscape sensor image |
 | M_i | marker i | centre origin, x right, y up, z out of the marker |
-| B | device / IMU | x right, y toward the top of the screen (portrait), z out of the screen |
+| B | device / IMU | x right, y toward the top of the screen (portrait), z out of the screen; `R_ci = appleCameraFromDevice` maps B into C |
 
 - `Pose3` (`lib/core/se3.dart`) is `aTb`: maps points from b to a; `aTb * bTc = aTc`.
 - Perturbations are on the right: `retract` applies `R ← R·Exp(δθ)`,
@@ -315,7 +318,124 @@ square (cells from `cv::aruco::generateImageMarker`, so the print is exactly
 what the detector decodes), an ID label, a TOP mark and a 100 mm ruler line.
 The PDF is written by hand (vector rectangles, Helvetica), no dependency.
 
-## 7. Implemented, configured, reused
+## 7. Keyframes, baselines and the first map (WP4)
+
+Session screen → **Build map** runs this whole section on a saved session
+(`lib/estimation/session_baselines.dart`); it runs Detect markers first when
+`results/detections.csv` does not exist yet. **Save map** then stores the
+map as `Documents/maps/<room>.json`.
+
+### 7.1 Keyframes (`lib/estimation/keyframe_selector.dart`)
+
+`KeyframeSelector` decides frame by frame (so the live mode of WP5 can use
+it unchanged). Only frames with an ARKit pose can be keyframes. The first
+tracked frame is keyframe 0; after that a frame becomes a keyframe when,
+relative to the **previous keyframe** (not accumulated along the path):
+
+- the camera moved ≥ 0.25 m (`keyframeTranslationM`), or
+- the relative rotation angle is ≥ 15° (`keyframeRotationDeg`), or
+- the frame has a usable marker detection and ≥ 0.3 s have passed
+  (`keyframeMarkerGapS`).
+
+"Usable" means status `ok` or `ambiguous` (`keyframeMarkerStatuses`): both
+have good corners, and the reprojection factor of WP5 needs corners, not a
+unique PnP pose. `small`, `no_pose`, `reproj` and `angle` do not count.
+Each keyframe records its reasons, the marker IDs it saw, and whether an
+untracked frame lay between it and the previous keyframe
+(`trackingGapBefore`; WP5 inflates that edge's noise).
+
+Between consecutive keyframes the odometry is
+`Z_k = (vTc_k)⁻¹ · vTc_k+1` (`OdometryEdge`), with step length and angle.
+
+### 7.2 Baseline 1: ARKit only
+
+`W` is fixed from keyframe 0: `wTv = (yawTranslation(ψ_0, t_0))⁻¹`, where
+`ψ_0` is the heading of the camera's viewing axis in V (`worldFromVio`).
+Then
+
+    X_0 = wTv · vTc_0,     X_k+1 = X_k · Z_k
+
+which equals `wTv · vTc_k`: the ARKit trajectory re-expressed in W. It is
+built by chaining because that is exactly the odometry-only solution and
+initial guess of the WP5 pose graph. Written to `results/traj_arkit.csv`:
+`kf, frame_index, t_us, tx, ty, tz, qx, qy, qz, qw, reasons, marker_ids,
+tracking_gap` (pose `wTc`, reasons and IDs joined with `|`).
+
+### 7.3 Baseline 2: IMU dead reckoning (`lib/estimation/imu_propagator.dart`)
+
+State `[p, v, q, b_a, b_g]`: device position and velocity in W, orientation
+`q_wb`, accelerometer and gyroscope biases (device axes). Measurement model
+(specific force, +g up at rest, as recorded):
+
+    ω_m = ω + b_g + n_g
+    f_m = R_wbᵀ (a + g e_z) + b_a + n_a      →   a = R_wb (f_m − b_a) − g e_z
+
+Propagation step from t to t + Δt (boundaries at the gyroscope stamps, the
+accelerometer interpolated onto them; `ω̄`, `f̄` are the means of the two
+end samples):
+
+    q ← q ⊗ Exp((ω̄ − b_g) Δt)
+    a  = R_wb(t) Exp((ω̄ − b_g) Δt/2) (f̄ − b_a) − g e_z
+    p ← p + v Δt + ½ a Δt²,   v ← v + a Δt
+
+This is exact for constant angular rate and for constant world
+acceleration (both tested against the closed form). Biases are constant
+during the run.
+
+Initialization: the first window of 2 s (`imuRestSeconds`), starting at or
+after keyframe 0 (scanned in 0.1 s steps for up to 15 s), in which the
+largest per-axis standard deviation is below 0.03 rad/s (gyroscope) and
+0.15 m/s² (accelerometer). There
+
+    b_g = mean(ω_m),     b_a = mean(f_m) − R_wbᵀ g e_z
+
+with `R_wb = R_wc · R_ci` from ARKit's pose in the middle of the window and
+`R_ci = appleCameraFromDevice` (WP2 measured 0.10° from it; time offset 0).
+Any small tilt error ends up in `b_a`, which is what makes the propagation
+start without a spurious acceleration. The propagation starts at the end of
+the window from ARKit's pose with v = 0. If no window is still, the biases
+are set to 0, the start is keyframe 0, and the screen says "NOT still".
+The IMU is placed at the camera centre (lever arm of a few cm, negligible
+against the drift). `results/traj_imu.csv`: `kf, t_us, pose (wTc), vx, vy,
+vz, dist_to_arkit_m` for each keyframe after the start.
+
+As the spec expects, this diverges. In the simulator with device-like noise
+(σ 0.02 m/s², 0.002 rad/s per sample, 2 s rest) the distance to the truth
+was 3 cm after 5 s, 21 cm after 10.6 s, 89 cm after 20 s and 5.7 m after
+45 s (synthetic numbers, `test/baselines_sim_test.dart`).
+
+### 7.4 First marker map (`lib/mapping/marker_map.dart`)
+
+Each marker is placed once, from its first **accepted** detection in a
+keyframe, with that keyframe's baseline-1 pose (spec 4.4, marker
+initialization):
+
+    wTm = wTc_k · cTm(best IPPE solution)
+
+So the map carries all the drift ARKit had at the moment of first sight;
+WP5 corrects it. Markers detected but never accepted in a keyframe are
+listed as "not placed". `results/map.json` and `maps/<room>.json` use one
+format (`vslam-marker-map`, version 1): method, frame description,
+dictionary, marker side, source session, creation time, and per marker the
+pose (`t`, `q` as x, y, z, w), first keyframe and time, distance and viewing
+angle of the placing detection, accepted and keyframe observation counts.
+`results/baselines.json` summarizes the run (keyframe counts and reasons,
+tracking gaps, path length, rest window and biases, IMU-vs-ARKit distance
+at 1, 2, 5, 10, 20, 30, 60 s and at the end, placed and unplaced IDs).
+
+### 7.5 Simulator (`test/support/simulator.dart`)
+
+`RoomSimulation` is the spec section 6 simulator, built now so WP5 reuses
+it: a 6 × 5 m room with eight 15 cm markers on the walls; a walk around an
+ellipse (2.0 × 1.4 m radii, 0.5 m/s, smooth start and stop, two laps,
+≈ 21.5 m) looking outward with a slow side-to-side sweep; ARKit poses at
+30 Hz and frames at 10 Hz with optional drift (1 % scale, 0.24° of heading
+per metre, step noise), an initializing period and a tracking-loss interval;
+IMU at 100 Hz from the true motion (finite differences, `R_ci`, biases,
+noise); corners projected through the calibrated camera model with 0.5 px
+noise, and the app's own IPPE solver and rejection rules. Fixed seeds.
+
+## 8. Implemented, configured, reused
 
 | Component | Status | Notes |
 | --- | --- | --- |
@@ -333,3 +453,8 @@ The PDF is written by hand (vector rectangles, Helvetica), no dependency.
 | Rejection rules, reprojection RMS, detections file | implemented (Dart) | `lib/vision/`, thresholds in `lib/estimation/config.dart` |
 | Live marker overlay | implemented (Dart), ARKit `displayTransform` reused | `lib/widgets/marker_overlay.dart` |
 | Marker sheet generator | implemented | `tools/make_markers.dart`, hand-written PDF |
+| Keyframe selection, odometry edges | implemented (Dart) | `lib/estimation/keyframe_selector.dart`, thresholds in `SlamConfig` |
+| Baseline 1 (ARKit chained odometry) | implemented (Dart) | `lib/estimation/baselines.dart` |
+| Baseline 2 (IMU dead reckoning, rest biases) | implemented (Dart) | `lib/estimation/imu_propagator.dart` |
+| First marker map, map files | implemented (Dart) | `lib/mapping/marker_map.dart` |
+| Room simulator for tests | implemented (Dart, tests) | `test/support/simulator.dart`, uses OpenCV's IPPE through the app |

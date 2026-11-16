@@ -263,3 +263,81 @@ the status line).
 If a distance is off by more than 3 %: first check the side entered in the
 settings (distance scales with it: 15.0 entered for a 12.3 cm print reads
 22 % too far).
+
+## WP4: keyframes, baselines, first map
+
+One recording of about 90 s and a few button presses, about 20 minutes with
+printing. Keyframe rules, IMU propagation, both baselines, marker placement
+and the map files are tested on the Mac (`test/keyframe_test.dart`,
+`test/imu_propagator_test.dart`, `test/baselines_sim_test.dart`,
+`test/marker_map_test.dart`, `test/baselines_ui_test.dart`), largely on a
+simulated room walk. What only the phone can show: real ARKit drift, the real
+IMU at rest and walking, and markers placed from real detections. This
+recording is also the first real dataset for WP5, so it is exported to the
+Mac.
+
+You need: markers ID 0–4 printed at the **same scaling** (ID 0 from WP3 was
+100 %, side 150 mm), tape, a room with texture (furniture, posters,
+bookshelves; not a plain wall: ARKit stays "Relocalizing" there), a tape
+measure, the phone and the Mac with a cable.
+
+### 4.0 Install the WP4 build
+
+With the phone connected and unlocked, the build is installed from the Mac
+(`flutter run --release`). Expected: home screen as before; status line
+"ArUco 4X4_50 · side 15.0 cm · calibrated K".
+
+### 4.1 Markers on the walls
+
+1. Print pages 2–5 of `docs/markers_4x4_50_ids0-9.pdf` (IDs 1–4) at 100 %.
+   Check one: black square 150 mm.
+2. Tape IDs 0–4 flat on the walls around the room at chest height, about
+   1–2 m apart, on at least two different walls, each near some texture.
+3. Measure with the tape the distance between the centres of ID 0 and ID 1
+   (straight line, cm).
+4. Settings row: label `wp4-room`, experiment "Closed loop", marker side
+   `15.0`, Save settings.
+
+Report: the ID 0–ID 1 distance.
+
+### 4.2 Record
+
+1. Stand in the middle of the room, phone in portrait pointing at a textured
+   area. Press Start.
+2. Hold the phone still (elbows against the body) until the badge shows
+   "SLAM tracking", then keep it still for 3 more seconds (bias window).
+3. Walk slowly (half normal pace) once around the room, pointing the phone at
+   each marker in turn from about 1–1.5 m, a bit from the side (not
+   head-on), for about 2 s each. Return to where you started. Press Stop.
+
+Expected: the recording ends normally; the session list shows `wp4-room`
+with about 60–120 s.
+
+### 4.3 Build map
+
+1. Open the session, press **Build map** (it first runs marker detection
+   over every frame, so the progress bar runs for a while).
+2. Expected card:
+   - Keyframes: some hundreds at most (roughly 4 per metre walked plus
+     marker and turn keyframes); "0 tracking gaps" if ARKit never lost
+     tracking.
+   - IMU rest: "still", 0.0–2.0 s (or a little later) after the first
+     keyframe; gyro σ below 0.03, acc σ below 0.15.
+   - IMU biases: gyro components of order 0.001–0.01 rad/s; accelerometer of
+     order 0.01–0.2 m/s².
+   - IMU vs ARKit: a few cm at 1–2 s, growing to metres within tens of
+     seconds (dead reckoning is expected to diverge).
+   - Markers: IDs 0–4 each with a position; the z values similar to one
+     another (all taped at chest height); nothing under "Not placed".
+3. Screenshot the card (scroll to show all of it if needed).
+
+Report: screenshot(s). The ID 0–ID 1 distance in the map is compared with the
+tape measure of 4.1 on the Mac.
+
+### 4.4 Save map and export
+
+1. Press **Save map**, room name `lab`, Save. Expected: the "Saved" row ends
+   with `maps/lab.json`.
+2. Press **Export**, AirDrop the zip to the Mac (lands in Downloads).
+
+Report: the Saved row and that the zip arrived.
