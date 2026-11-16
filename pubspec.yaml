@@ -8,6 +8,7 @@ environment:
 
 dependencies:
   archive: ^4.6.0
+  dartcv4: ^2.3.1
   flutter:
     sdk: flutter
   path_provider: ^2.1.6
@@ -23,3 +24,19 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+# OpenCV modules (dartcv4 README, "hooks: user_defines"): calib3d for
+# calibration (WP2); objdetect and aruco for marker detection (WP3), enabled
+# now so OpenCV is compiled once. The list replaces dartcv4's default set
+# (hook_helpers/user_defines.dart), so imgproc and imgcodecs must be listed.
+hooks:
+  user_defines:
+    dartcv4:
+      include_modules:
+        - imgproc
+        - imgcodecs
+        - calib3d
+        - features2d
+        - flann
+        - objdetect
+        - aruco

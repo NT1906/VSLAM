@@ -85,3 +85,123 @@ Expected:
 
 Please keep the `wp1-static` and `wp1-walk-renamed` zips: the next package's
 regression test replays one of them (they stay out of git).
+
+## WP2: calibration, IMU timing and alignment
+
+No ArUco markers are needed for WP2. It uses only the printed chessboard
+(2.1–2.2) and an ordinary textured scene (2.3). Markers come in WP3.
+
+You need: a printer, a ruler with millimetres, tape, something flat and stiff
+(cardboard, clipboard, hardcover book), the phone, the Mac with a cable,
+about 30 minutes, a well-lit room with some texture (books, posters,
+furniture; not a blank wall).
+
+### 2.0 Install the WP2 build
+
+1. Connect the phone to the Mac with the cable, unlock it.
+2. In Terminal: `cd ~/Documents/IE415/VSLAM && ~/development/flutter/bin/flutter run --release`.
+   The first build compiles OpenCV and takes several minutes.
+3. The app opens on the phone. Expected: the home screen as in WP1, plus a new
+   grid icon (Calibration) in the top bar. The camera shows "SLAM tracking"
+   after a short pan.
+
+### 2.1 Print and measure the board
+
+1. Open `docs/calibration_board.svg` on the Mac (double-click opens it in a
+   browser or Preview).
+2. Print: paper A4 or Letter, orientation **landscape**, scale **100 %**
+   (in the print dialog turn off "Fit to page" / "Scale to fit"; choose
+   "Actual size"). One copy.
+3. Check the print: 10 × 7 black/white squares, a line with "100 mm" below.
+4. With the ruler, measure:
+   - the ruler line (expected 100 mm; if it is off by more than 1 mm, the
+     printer scaled it: print again with the scaling turned off);
+   - one full row of 10 squares, edge to edge, and divide by 10. This is the
+     square side (expected about 25.0 mm). Measuring 10 squares is more
+     accurate than measuring one.
+5. Glue or tape the sheet completely flat onto the stiff backing, with no
+   bubbles or bent corners. A curved board gives a wrong calibration.
+
+Report: ruler line mm, 10-square length mm, square side mm.
+
+### 2.2 Calibrate the camera
+
+1. Put the board flat on a table, or lean it against a wall, in even light
+   with no glare on it.
+2. In the app tap the grid icon. A panel opens at the bottom; the camera view
+   stays visible above it.
+3. Type the square side from 2.1 in mm (e.g. `24.9`) in "Measured square
+   side". It can only be changed before the first capture.
+4. Capture views. For each: hold the phone so the **whole** board (all 10 × 7
+   squares) is in the camera view, hold still for a second, tap **Capture**.
+   - "View n: 54 corners" means it was accepted.
+   - "Board not found" means some corners were out of view, blurred or had
+     glare: move a little and capture again.
+   - Undo removes the last view.
+5. Take 18 views (between 15 and 20; Capture stops at 20), varying them:
+   - 3 head-on: board centred, filling about half the image, at about 30, 45
+     and 60 cm;
+   - 4 tilted about 30–45°: phone moved left, right, up, down while still
+     aiming at the board;
+   - 6 with the board near each corner and edge of the camera image (top-left,
+     top-right, bottom-left, bottom-right, left edge, right edge), board fully
+     visible;
+   - 3 with the phone rolled (turned about the lens axis) about 30–90°;
+   - 2 close, board filling most of the image.
+6. Coverage should read 80 % or more. If it is lower, add views with the board
+   near the parts of the image not yet used.
+7. Tap **Calibrate** (enabled from 15 views). It takes a few seconds.
+8. Expected:
+   - "Calibrated and saved to calibration.json", and the table: OpenCV and
+     ARKit columns for fx, fy, cx, cy and the difference; k1, k2.
+   - RMS under 0.5 px (under 0.3 px is good). Above 1 px means a bent board,
+     motion blur or a wrong square size: redo.
+   - fx, fy within about 1–2 % of ARKit's (ARKit gave ≈ 721 in WP1); cx, cy
+     within a few pixels of ARKit's.
+   - k1 and k2 small (|k1| below about 0.3).
+9. Close the panel and open it again: the saved result is shown.
+10. Take a screenshot of the table.
+11. Copy `calibration.json` to the Mac: Finder → the phone → Files → VSLAM →
+    drag `calibration.json` out.
+
+Report: the screenshot (or all numbers: views, RMS, fx, fy, cx, cy, k1, k2 and
+the ARKit values), coverage %, and `calibration.json`.
+
+### 2.3 Rotation recording and camera–IMU alignment
+
+1. On the home screen, the settings row: label `wp2-rotation`, experiment
+   "Calibration / alignment", marker side unchanged, note "rotation about
+   each axis". Save.
+2. Stand facing a textured scene 1–3 m away (bookshelf, desk, posters). Wait
+   for "SLAM tracking".
+3. Tap **Start**, then:
+   1. 2 s still.
+   2. ~5 s: rotate back and forth about the phone's **long axis** (hold it
+      upright and twist it like turning a key, ±30–45°, about 1–2 times per
+      second).
+   3. ~5 s: rotate about the **short axis** (tip the top of the phone toward
+      you and away, like nodding, ±30–45°).
+   4. ~5 s: rotate about the **screen normal** (like turning a steering
+      wheel, ±30–45°).
+   5. 2 s still.
+   Keep the camera pointed at the textured scene the whole time and do not
+   walk. If the badge leaves "SLAM tracking" for more than a moment, stop,
+   delete the session and redo it slower.
+4. Tap **Stop**, open the folder icon, open the newest `wp2-rotation` session.
+   Expected: about 20 s, poses mostly tracked, gyroscope ≈ 100 Hz.
+5. Tap **IMU alignment** (bottom of the screen). A second card appears:
+   - Time offset in ms (expected: a few ms to a few tens of ms, either sign);
+   - R_ci, a 3 × 3 matrix;
+   - Apple axes `0 -1 0 / -1 0 0 / 0 0 -1` and the angle between them and
+     R_ci (expected under 2–3°; each entry of R_ci close to the Apple
+     matrix);
+   - Residual: RMS with the offset clearly lower than "with zero offset";
+     the number of pairs (expected several hundred) and mean rate (expected
+     above 1 rad/s).
+   If it says "Not enough rotation", record again rotating more.
+6. Screenshot the card. Tap Export and AirDrop the zip to the Mac; keep it
+   (it contains `results/imu_alignment.json`).
+7. Repeat steps 1–6 once more with label `wp2-rotation-2`.
+   Expected: offsets agree within a few ms, angles to Apple within ~1°.
+
+Report: both screenshots (or all numbers), both zips kept.

@@ -114,6 +114,57 @@ Bugs the widget tests caught and fixed: rename dialog disposed its text
 controller during the closing animation; the sessions list called `setState`
 with a closure returning a Future.
 
+### WP2 calibration, IMU timing and alignment: done in code, device checks pending
+
+Done:
+- `dartcv4` 2.3.1 added (CMake 4 via Homebrew). Modules in `pubspec.yaml`:
+  imgproc, imgcodecs, calib3d, features2d, flann, objdetect, aruco.
+  `include_modules` **replaces** the default list (`hook_helpers/
+  user_defines.dart`), so imgproc and imgcodecs must be listed; without them
+  `imdecode`/`imencode` are missing at run time (the first test run showed
+  this; the iOS build still passed). Signatures used (`findChessboardCorners`,
+  `cornerSubPix`, `calibrateCamera`, `imdecode`, `Mat.fromList` needs
+  doubles) were read in the package source.
+- Board: chessboard 9 × 6 inner corners, 25 mm, `tools/make_board.dart` →
+  `docs/calibration_board.svg` (true scale, 100 mm ruler). Pulled forward from
+  WP3; WP3 adds the markers.
+- Calibration sheet (grid icon on the home screen, `lib/widgets/
+  calibration_panel.dart`): 15–20 views, coverage, OpenCV with
+  `USE_INTRINSIC_GUESS | ZERO_TANGENT_DIST | FIX_K3`, RMS, OpenCV vs ARKit
+  table, saved to `Documents/calibration.json`.
+- Time offset and camera–IMU rotation (`lib/calibration/imu_alignment.dart`,
+  session screen → IMU alignment → `results/imu_alignment.json`), compared
+  with Apple's axes. Method in `DESIGN.md` 5.2.
+- Docs: `DESIGN.md` section 5 and table, README status, `DEVICE_CHECKS.md` WP2
+  (step by step).
+
+Checks (2026-11-16):
+- `flutter analyze`: no issues. `flutter test`: 47 pass (35 before + 12 new),
+  run twice. `flutter build ios --debug --no-codesign`: passes.
+- OpenCV loads under `flutter test` on macOS, so detection and calibration
+  are tested on the Mac, not only on the device.
+- Synthetic calibration (board rendered through fx 721.4, cx 477.6, cy 361.5,
+  k1 0.08, k2 −0.15; 10 views, JPEG q 95): every corner within 0.5 px;
+  result RMS 0.101 px, fx = fy 722.7 (+0.18 %), cx 477.6, cy 361.6, k1 0.079,
+  k2 −0.147.
+- Synthetic alignment: offsets +23, −41, +7.5, +15 ms recovered within 1.5 ms,
+  rotation within 0.5°. The first version used only rate magnitudes and was
+  off by 1.7–2.5 ms; the test motion also had abrupt axis switches. Fixed by
+  a vector-residual refinement and a smooth test motion (thresholds unchanged).
+- Test fixes that were test errors, not code changes: one rendered view put
+  part of the board outside the image (u −28…744, v 133…827), moved from 0.30
+  to 0.38 m.
+- Seen once, not reproduced in two further full runs: `dataset_test` "a
+  second session started in the same second" failed in tearDown with
+  "Directory not empty" while OpenCV was compiling in parallel. WP1 test,
+  unchanged; watch for it.
+- Apple axes: `ARCamera.transform` text read 2026-11-16 (x from the front
+  camera toward the Home button, z out of the screen side). Core Motion's
+  axes are only an image on the `CMMotionManager` page that would not load;
+  device +z out of the screen is confirmed by check 1.3.
+
+Device checks 2.0–2.3: **pending** (user).
+
 ## Decisions
 
 - IMU on iOS read directly from CoreMotion in `ArPlugin.swift`
@@ -132,11 +183,21 @@ with a closure returning a Future.
 - Export zips with no recompression (`store`), since images are already JPEG,
   on a background isolate, into the temporary directory.
 
+- WP2: chessboard rather than ChArUco (ChArUco is bound, but only `calib3d`
+  is needed and every view should show the whole board anyway).
+- WP2: calibration starts from ARKit's mean intrinsics
+  (`CALIB_USE_INTRINSIC_GUESS`); the comparison with ARKit is reported, not
+  used to constrain the result.
+- WP2: time offset model `ω_c(t) = R_ci ω_i(t + δ)`; δ > 0 means IMU stamps
+  lag. The ARKit pose stream (30 Hz) is used, not the 10 Hz frames.
+- Open (decide after 2.2): use the OpenCV calibration or ARKit's per-frame
+  intrinsics in the estimator.
+
 ## Open questions
 
 - Answered: iPhone 15 (`iPhone15,4`), ARKit image 1920×1440 → 960×720.
 
 ## Next
 
-WP2 (calibration, IMU timing and alignment) after the WP1 device checks are
-confirmed.
+WP3 (ArUco detection and pose) after the WP2 device checks are confirmed.
+Needs printed markers (IDs 0–9 from the WP3 tool), not before.

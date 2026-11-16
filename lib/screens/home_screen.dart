@@ -5,6 +5,7 @@ import '../dataset/session_store.dart';
 import '../services/session_controller.dart';
 import '../slam/slam_service.dart';
 import '../widgets/ar_camera_view.dart';
+import '../widgets/calibration_panel.dart';
 import '../widgets/diagnostics_panel.dart';
 import '../widgets/recording_settings_sheet.dart';
 import '../widgets/sensor_status_panel.dart';
@@ -71,6 +72,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               showDragHandle: true,
               builder: (_) =>
                   const SingleChildScrollView(padding: EdgeInsets.fromLTRB(12, 0, 12, 24), child: DiagnosticsPanel()),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.grid_on_outlined),
+            tooltip: 'Calibration',
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              showDragHandle: true,
+              isScrollControlled: true,
+              barrierColor: Colors.transparent,
+              builder: (_) => const SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(12, 0, 12, 24),
+                child: CalibrationPanel(),
+              ),
             ),
           ),
           IconButton(icon: const Icon(Icons.help_outline), tooltip: 'How to use', onPressed: () => _showHelp(context)),

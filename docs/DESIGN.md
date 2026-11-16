@@ -153,7 +153,76 @@ must use `tUs`, not arrival order.
   confirmation).
 - Sessions are also visible in Finder and the Files app (`UIFileSharingEnabled`).
 
-## 5. Implemented, configured, reused
+## 5. Calibration and camera–IMU alignment (WP2)
+
+### 5.1 Camera calibration
+
+Board: a chessboard of 10 × 7 squares (9 × 6 inner corners), 25 mm nominal,
+generated as a true-scale SVG by `dart run tools/make_board.dart` (also in
+`docs/calibration_board.svg`) with a 100 mm ruler line to confirm the print
+scale. A chessboard rather than ChArUco: only `calib3d` is needed, and every
+view must show the whole board anyway for good coverage.
+
+Procedure (calibration icon on the home screen, a sheet over the live view):
+enter the measured square side, then capture 15–20 views at varied distance,
+tilt (up to ≈ 45°) and position, so corners reach the image edges (the
+coverage figure counts the cells of a 6 × 4 grid that hold a corner). For each
+capture the next ARKit frame's JPEG (960 × 720 gray, the same pixels the
+pipeline uses) goes through `findChessboardCorners` (adaptive threshold,
+normalise, fast check) and `cornerSubPix` (11 × 11 window), in a background
+isolate. Calibrate runs `calibrateCamera` with
+`CALIB_USE_INTRINSIC_GUESS | CALIB_ZERO_TANGENT_DIST | CALIB_FIX_K3`, starting
+from ARKit's mean intrinsics, so the result is exactly the model of
+`CameraIntrinsics`: fx, fy, cx, cy, k1, k2. The RMS reprojection error, the
+board, the view count and the mean ARKit intrinsics of the same images are
+stored in `Documents/calibration.json`, and the sheet shows OpenCV vs ARKit
+side by side. Code: `lib/calibration/camera_calibration.dart`,
+`lib/widgets/calibration_panel.dart`.
+
+### 5.2 Time offset and rotation
+
+From a recording with rotation about each phone axis (session screen →
+IMU alignment; result in `results/imu_alignment.json`):
+
+- Camera angular velocity from consecutive tracked ARKit poses (~30 Hz),
+  converted to the OpenCV camera frame:
+  `ω_c(t_k+½) = Log(R_k⁻¹ R_{k+1}) / Δt`, stamped at the midpoint.
+- Model: `ω_c(t) = R_ci · ω_i(t + δ)`, gyroscope linearly interpolated.
+  δ > 0 means a motion shows up later in the IMU stamps than in the camera
+  stamps.
+- δ, coarse: minimise `mean (|ω_c(t)| − |ω_i(t + δ)|)²` on a 1 ms grid over
+  ±200 ms (magnitudes do not depend on R), parabolic refinement.
+- R_ci: least squares `min Σ |ω_c − R ω_i|²`, closed form by Horn's quaternion
+  method (largest eigenvector of a 4 × 4 symmetric matrix, Jacobi).
+- δ, fine: with R known, minimise the full vector residual on a 0.1 ms grid
+  over ±5 ms, refit R; three rounds. (Magnitudes alone are biased by gyro
+  noise; on synthetic data the vector refinement is what brings the error
+  under 1.5 ms.)
+- Only camera rates above 0.1 rad/s are used; too little motion is an error,
+  not a guess. Reported: δ, R_ci, RMS residual at δ and at 0, pairs, mean
+  rate.
+
+Apple's documented axes: Core Motion device frame x right, y toward the top
+of the screen (portrait), z out of the screen; ARKit camera space x along the
+long axis from the front camera toward the Home-button end, y up in
+landscape, z out of the screen side. With the OpenCV camera (y and z of ARKit
+negated) this gives `x_cv = −y_dev, y_cv = −x_dev, z_cv = −z_dev`
+(`appleCameraFromDevice`). The estimate is reported together with this
+matrix and the angle between them. Sources: the `ARCamera.transform` page
+states the camera axes in text (x from the front camera toward the Home
+button, z out of the screen side), checked 2026-11-16. The `CMMotionManager`
+page gives the device axes only as an illustration, which could not be
+loaded outside Apple's viewer; device +z out of the screen is confirmed by
+WP1 check 1.3 (+g on +z, screen up), and the rotation estimate checks the rest.
+
+Tests: `test/imu_alignment_test.dart` recovers offsets of +23, −41 and
++7.5 ms (within 1.5 ms) and a rotation a few degrees from Apple's (within
+0.5°) from synthetic 30 Hz orientations and noisy 100 Hz gyro;
+`test/camera_calibration_test.dart` renders the board through a known
+distorted camera, checks detected corners (< 0.5 px) and recovered
+intrinsics.
+
+## 6. Implemented, configured, reused
 
 | Component | Status | Notes |
 | --- | --- | --- |
@@ -164,3 +233,6 @@ must use `tUs`, not arrival order.
 | Dataset format, writer, reader, replay | implemented (Dart) | `lib/dataset/` |
 | Sessions list, detail, export | implemented (Dart) | export uses `archive` (zip) and `share_plus` |
 | File locations | reused | `path_provider` |
+| Chessboard detection, calibration | reused (OpenCV via `dartcv4` 2.3.1), configured | flags in 5.1 |
+| Board generator | implemented | `tools/make_board.dart` |
+| Time offset and camera–IMU rotation | implemented (Dart) | `lib/calibration/imu_alignment.dart` |

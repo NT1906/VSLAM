@@ -3,7 +3,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:vector_math/vector_math_64.dart' show Matrix3;
 
+import '../calibration/imu_alignment.dart';
+import '../calibration/session_alignment.dart';
 import '../dataset/sensor_event.dart';
 import '../dataset/session_reader.dart';
 import '../dataset/session_store.dart';
@@ -24,6 +27,7 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
   late Directory _dir = widget.directory;
   late Future<SessionData> _data = SessionReader.read(_dir);
   bool _busy = false;
+  ImuAlignment? _alignment;
 
   Future<void> _rename(SessionData data) async {
     final label = await showDialog<String>(
@@ -63,6 +67,12 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
       if (mounted) Navigator.pop(context);
     });
   }
+
+  Future<void> _align(SessionData data) => _run(() async {
+    final result = alignSession(data);
+    await saveAlignment(_dir, result);
+    if (mounted) setState(() => _alignment = result);
+  });
 
   Future<void> _run(Future<void> Function() action) async {
     setState(() => _busy = true);
@@ -104,6 +114,10 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
               if (data.frames.isNotEmpty) _FirstFrame(frame: data.frames.first),
               const SizedBox(height: 8),
               _InfoCard(rows: _rows(data)),
+              if (_alignment case final a?) ...[
+                const SizedBox(height: 8),
+                _InfoCard(rows: _alignmentRows(a)),
+              ],
               const SizedBox(height: 12),
               if (_busy) const LinearProgressIndicator(),
               const SizedBox(height: 8),
@@ -134,6 +148,11 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Delete'),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _align(data),
+                    icon: const Icon(Icons.sync_alt),
+                    label: const Text('IMU alignment'),
+                  ),
                 ],
               ),
             ],
@@ -141,6 +160,22 @@ class _SessionDetailScreenState extends State<SessionDetailScreen> {
         },
       ),
     );
+  }
+
+  static List<(String, String)> _alignmentRows(ImuAlignment a) {
+    String row(int r) => [for (var c = 0; c < 3; c++) a.rCI.entry(r, c).toStringAsFixed(3).padLeft(6)].join(' ');
+    String mat(Matrix3 m) => [for (var r = 0; r < 3; r++) [for (var c = 0; c < 3; c++) m.entry(r, c).round()].join(' ')].join(' / ');
+    return [
+      ('Time offset', '${(a.offsetUs / 1000).toStringAsFixed(1)} ms (gyro stamps later than camera when positive)'),
+      ('R_ci', '${row(0)}\n${row(1)}\n${row(2)}'),
+      ('Apple axes', '${mat(appleCameraFromDevice)}, differs by ${a.angleToDeg(appleCameraFromDevice).toStringAsFixed(2)}°'),
+      (
+        'Residual',
+        '${a.rmsResidual.toStringAsFixed(3)} rad/s RMS (${a.rmsResidualIdentityOffset.toStringAsFixed(3)} with zero offset), '
+            '${a.samples} pairs, mean rate ${a.meanRate.toStringAsFixed(2)} rad/s',
+      ),
+      ('Saved', 'results/$imuAlignmentFile'),
+    ];
   }
 
   static List<(String, String)> _rows(SessionData data) {
