@@ -15,7 +15,7 @@ Development continues on the `iphone-slam` branch, iPhone only, following
 |---|---|
 | Sensor acquisition | ARKit frames (960×720 gray, 10 Hz, fixed focus) with per-frame intrinsics and pose; CoreMotion accelerometer and gyroscope at 100 Hz; all on one timestamp clock. Device checks pending. |
 | Dataset save / load | **Done in code (WP1).** Every recording is saved to a session folder; sessions can be listed, opened, renamed, exported (zip) and deleted, and replayed through the same interface as live data. |
-| Calibration, time offset | **Done in code (WP2).** Chessboard calibration sheet (OpenCV, k1/k2 only) with ARKit comparison; camera–IMU time offset and rotation from a rotation recording (session screen → IMU alignment). Device checks passed: RMS 0.467 px; R_ci 0.10° from Apple's axes. |
+| Calibration, time offset | **Done (WP2).** Chessboard calibration sheet (OpenCV, k1/k2 only) with ARKit comparison; camera–IMU time offset and rotation from a rotation recording (session screen → IMU alignment). Device checks passed: RMS 0.467 px; R_ci 0.10° from Apple's axes. |
 | ArUco detection | Not started (WP3). |
 | Estimation, map, evaluation | Not started (WP4–WP8). |
 
