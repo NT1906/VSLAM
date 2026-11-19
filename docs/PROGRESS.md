@@ -106,7 +106,9 @@ Checks:
     not checked separately.) Passes.
   - WP1 device checks 1.1–1.5: **all pass** (2026-11-12). Kept zips:
     `2026-11-12_09-01-42_wp1-static.zip`, `2026-11-12_09-05-51_wp1-walk.zip`
-    (exported before the rename; outside git).
+    (exported before the rename; outside git). Not found on the Mac on 2026-11-19
+    (Downloads, Desktop, Documents, Spotlight); the sessions themselves are
+    on the phone unless deleted there.
   - Fixed after this run: the session screen printed a negative "before"
     time when the IMU started after the first frame; it now says before or
     after.

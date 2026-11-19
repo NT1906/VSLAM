@@ -265,6 +265,9 @@ whoever wrote the spec for it, or rely on the table only.
   lap (spec 4.5); centimetre accuracy is only expected in anchoring mode.
 - Calibration RMS 0.467 px is near the 0.5 px limit; a stiffer board would
   likely lower it.
-- Recordings and exported zips are kept outside git (two WP1 zips:
-  `2026-11-12_09-01-42_wp1-static.zip`, `2026-11-12_09-05-51_wp1-walk.zip`,
-  on the original Mac). Agree with the team where shared recordings live.
+- Recordings are kept outside git. The sessions recorded so far live on the
+  original iPhone (Files → On My iPhone → VSLAM → sessions), together with
+  that phone's camera calibration (`calibration.json`). The WP1 export zips
+  (`2026-11-12_09-01-42_wp1-static.zip`, `2026-11-12_09-05-51_wp1-walk.zip`)
+  were not found on the original Mac on 2026-11-19. What to copy over is
+  listed in `docs/HANDOVER_CHECKLIST.md`.
