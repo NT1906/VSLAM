@@ -375,6 +375,10 @@ Device check (`DEVICE_CHECKS.md` WP4), in progress:
 - 4.1–4.4 (markers 1–4 printed and taped, ~90 s recording, Build map, Save
   map, export): not done yet. Handed over to a teammate; see
   `docs/HANDOFF.md`.
+- 2026-11-19: the teammate continues on **his own iPhone**. Before WP4 he
+  repeats on it the image-size check (1.1), the camera calibration (2.2)
+  and the marker distance check (3.2) (`HANDOFF.md` section 4). The
+  camera–IMU rotation is Apple's axis convention and is not repeated.
 
 ## Decisions
 

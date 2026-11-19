@@ -24,7 +24,7 @@ handout `docs/IE415_handout.pdf`.
 | WP1 dataset recorder, replay | done | pass | **passed** (2026-11-12) |
 | WP2 calibration, IMU timing and alignment | done | pass | **passed** (RMS 0.467 px; R_ci 0.10° from Apple's axes; time offset only bounded) |
 | WP3 ArUco detection and pose | done | pass | **passed** (1.006 m at 1 m, 2.058 m at 2 m) |
-| WP4 keyframes, baselines, first map | done | pass | **in progress**: 4.0 passed, 4.1–4.4 to do (section 4 below) |
+| WP4 keyframes, baselines, first map | done | pass | **in progress** on the original phone (4.0 passed); to be done on the new phone (sections 4 and 5 below) |
 | WP5 pose-graph optimizer | not started | | |
 | WP6 anchoring, relocalization | not started | | |
 | WP7 map view, interface | not started | | |
@@ -33,6 +33,10 @@ handout `docs/IE415_handout.pdf`.
 Last full check (WP4 commit `05398ab`): `flutter analyze` no issues,
 `flutter test` 96 pass, `flutter build ios --debug --no-codesign` and
 `--release --no-codesign` pass.
+
+**Phone change:** WP1–WP3 device results come from the original iPhone 15
+(`iPhone15,4`). The work continues on the teammate's own iPhone, so a few
+of those checks are repeated first (section 4).
 
 The spec asks to finish a package's device check before starting the next,
 because later packages need real data. WP5 can be *coded* against the
@@ -88,12 +92,50 @@ tuning need that recording.
 - Thresholds and noise parameters live in one place:
   `lib/estimation/config.dart` (`SlamConfig`), each with a comment.
 
-## 4. Next step: finish the WP4 device check
+## 4. First: set up your own iPhone (about 30 minutes)
+
+The camera calibration and the marker-distance result belong to one
+camera, so they are redone on the new phone before any WP4 recording. The
+camera–IMU rotation (WP2 check 2.3) is **not** redone: it is Apple's
+documented axis convention, the same on every iPhone (measured 0.10° from
+it on the original phone). Nothing is copied from the original phone; the
+old recordings are not needed (their results are in `PROGRESS.md`).
+
+Steps, all in `docs/DEVICE_CHECKS.md`:
+
+1. **Install.** Open `ios/Runner.xcworkspace`, Runner target → Signing &
+   Capabilities → choose your team. If Xcode says the bundle ID
+   `com.vslam.app` is not available to your account, change it to your own
+   (e.g. `com.<yourname>.vslam`); nothing else depends on it. On the phone
+   turn on Developer Mode (Settings → Privacy & Security) and trust the Mac.
+   Then `flutter run --release` with the phone on a cable.
+2. **Camera and IMU stream (WP1 check 1.1, 2 min).** Pan until "SLAM
+   tracking", open diagnostics (heart-monitor icon). Expected: image
+   `960×720`, frames about 10 Hz, your model in the device row. If the image
+   is another size, stop: this phone's ARKit video format is not
+   1920 × 1440, and the frame reduction in `ios/Runner/ArPlugin.swift`
+   (integer box filter) and every pixel threshold (tuned at 960 px width)
+   need checking first. Optional: record 10 s and check on the session
+   screen that the IMU runs at about 100 Hz.
+3. **Calibrate the camera (WP2 checks 2.1–2.2, 15 min).** Print
+   `docs/calibration_board.svg`, measure the printed square (the original
+   printer gave 20.6 mm instead of 25 mm), enter it, take 15–20 varied views,
+   Calibrate. Expected RMS < 0.5 px, focal length within 1–2 % of ARKit's.
+   Focus is fixed (autofocus off), so keep views at 35 cm or more. Afterwards
+   the status line at the bottom of the camera view says "calibrated K".
+4. **Marker distance (WP3 checks 3.1–3.2, 10 min).** Print marker ID 0 at
+   100 %, measure the black square (150 mm), enter the side in the settings
+   row, tape it on a wall, check the distance at 1 m and 2 m (within 3 %).
+5. Record the results (phone model, image size, calibration RMS and
+   intrinsics, the two distances) in `PROGRESS.md` under a "new phone"
+   heading, then continue with section 5.
+
+## 5. Next step: finish the WP4 device check
 
 Full text in `docs/DEVICE_CHECKS.md` → WP4. State when this was handed over:
 
-- **4.0 done.** WP4 build installed; status line reads "calibrated K"
-  (reported in text, no screenshot).
+- **4.0** passed on the original phone. On the new phone it is covered by
+  section 4 (install, "calibrated K" on the status line).
 - **4.1 (next).** Print marker IDs 1–4 (pages 2–5 of
   `docs/markers_4x4_50_ids0-9.pdf`) at 100 %, check the square is 150 mm,
   tape IDs 0–4 on at least two walls of a **textured** room at chest
@@ -129,7 +171,7 @@ Device facts already learned (keep them in mind for every recording):
 - ARKit's per-frame intrinsics drift 0.1–0.4 px within a run; the estimator
   uses the WP2 calibration instead (`chooseIntrinsics`).
 
-## 5. Map of the code
+## 6. Map of the code
 
 ```
 lib/core/          Pose3 (aTb), so3Exp/so3Log, poseError, projectToYaw
@@ -157,7 +199,7 @@ Session results so far: `results/detections.csv` + `detections.json` (WP3),
 `imu_alignment.json` (WP2), `traj_arkit.csv`, `traj_imu.csv`, `map.json`,
 `baselines.json` (WP4). Formats are in DESIGN sections 6.4 and 7.
 
-## 6. WP5: pose-graph optimizer (the core of the project)
+## 7. WP5: pose-graph optimizer (the core of the project)
 
 Spec sections 4.4, 4.5 and 6. Suggested files (spec section 8):
 `lib/estimation/factors.dart`, `pose_graph.dart`, `lm_solver.dart`,
@@ -227,7 +269,7 @@ Note: the spec refers to `tools/reference_sim.py` (the Python reference
 simulation behind that table). **It is not in this repository.** Ask
 whoever wrote the spec for it, or rely on the table only.
 
-## 7. WP6–WP8 in short
+## 8. WP6–WP8 in short
 
 - **WP6 anchoring and relocalization.** `ground_truth/<room>.json` format
   (surveyed marker poses and floor checkpoints, tape-measured room frame);
@@ -253,7 +295,7 @@ whoever wrote the spec for it, or rely on the table only.
   difficult condition. Each has an experiment type in the recording
   settings already.
 
-## 8. Known limits and open points
+## 9. Known limits and open points
 
 - Camera–IMU time offset: only bounded ("no large offset") by WP2's slow
   rotation run; the estimator uses 0. Fine for keyframes ≥ 0.25 s apart.

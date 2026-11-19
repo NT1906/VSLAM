@@ -17,7 +17,12 @@ technical plan for the remaining work is in `docs/HANDOFF.md` (and
 - [ ] Print files are in the repo too: `docs/markers_4x4_50_ids0-9.pdf`
       (markers) and `docs/calibration_board.svg` (chessboard).
 
-## 2. Files that are only on your phone (copy them to him)
+## 2. Files that are only on your phone (not needed: he uses his own phone)
+
+**Decided 2026-11-19: he records with his own iPhone**, so nothing below has
+to be handed over. His phone gets its own calibration (`HANDOFF.md`
+section 4), and the code is developed against the simulator, not these
+recordings. Keep them only as an archive for the report if you want.
 
 The app saves everything under its Documents folder on the iPhone, which
 shows in the Files app as **On My iPhone → VSLAM** (and in Finder when the
@@ -44,14 +49,14 @@ phone is connected: the phone → Files → VSLAM).
 
 ## 3. Things that are physical
 
-- [ ] **Printed marker ID 0** (printed at 100 %, black square 150 mm).
-- [ ] **Printed chessboard** (printed at about 82 %: square 20.6 mm, not
-      25 mm). Only needed if the camera is calibrated again.
+- [ ] **Printouts are optional.** He can print his own from the repo
+      (`docs/markers_4x4_50_ids0-9.pdf` at 100 %, `docs/calibration_board.svg`).
+      Your marker ID 0 (150 mm) can be reused. Your chessboard came out at
+      82 % (square 20.6 mm): if he reuses it, he enters 20.6 mm, not 25 mm.
 - [ ] Markers **IDs 1–4 are not printed yet** (pages 2–5 of the marker
       PDF, at 100 %; WP4 check step 4.1). IDs 5–9 will be needed for the
       experiments (6–10 markers in the room).
-- [ ] **The phone.** Decide whether he uses your iPhone 15 or his own (see
-      section 5).
+- [x] **The phone:** he uses his own iPhone (decided 2026-11-19).
 - [ ] Tape measure (all device checks and the ground truth for WP6–WP8
       need one).
 
@@ -62,25 +67,24 @@ phone is connected: the phone → Files → VSLAM).
       `HANDOFF.md` section 2.
 - [ ] His own Apple ID signed in to Xcode, with his team chosen under
       Signing for the Runner target (a free Apple ID works; apps then expire
-      after 7 days and are reinstalled with `flutter run --release`).
+      after 7 days and are reinstalled with `flutter run --release`). If
+      the bundle ID `com.vslam.app` is refused for his account, he changes
+      it to his own.
 - [ ] On the phone: Developer Mode on, and his Mac trusted (cable the first
       time).
 
 ## 5. Decisions to agree with him
 
-- [ ] **Which phone.** On **your** iPhone 15 nothing needs redoing (with
-      `calibration.json` in place). On a **different** iPhone he must redo
-      the WP2 calibration (calibration sheet, 15–20 views, check 2.2) and
-      the WP3 distance check (1 m and 2 m) before recording, because the
-      intrinsics and distortion belong to one camera. Other iPhone models
-      may also give a different image size than 1920 × 1440 → 960 × 720.
+- [x] **Which phone:** his own (decided 2026-11-19). Before recording he
+      checks the image size, calibrates the camera and repeats the marker
+      distance check: `HANDOFF.md` section 4, about 30 minutes.
 - [ ] **Where recordings are shared** (a shared drive folder), since they
       stay out of git.
 - [ ] **Which room** the experiments use (textured; markers stay up for the
       repeat-run experiment; it must be tape-measured for ground truth in
       WP6).
 - [ ] **Who finishes the WP4 device check** (steps 4.1–4.4 in
-      `DEVICE_CHECKS.md`; step 4.0 is done on your phone).
+      `DEVICE_CHECKS.md`, on his phone after `HANDOFF.md` section 4).
 
 ## 6. Things to tell him that are not in the documents
 
