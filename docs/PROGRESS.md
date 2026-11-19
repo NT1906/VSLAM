@@ -1,6 +1,7 @@
 # Progress
 
-Read with `docs/SPEC.md`. A new session continues from these two files.
+Read with `docs/SPEC.md`. A new session continues from these two files
+(and `docs/HANDOFF.md`, written for the teammate taking over).
 
 Branch: `iphone-slam` (local, not pushed). Toolchain: Flutter 3.47.9 / Dart
 3.13.7 (`~/development/flutter`), the version the repo was created with.
@@ -365,8 +366,13 @@ Checks (2026-11-16):
   (1e-12); the widget test tapped before a scroll settled and needed to
   scroll a lazily built button into view.
 
-Device check: pending (`DEVICE_CHECKS.md` WP4: one ~90 s recording with
-markers 0–4 on the walls, Build map, Save map, export).
+Device check (`DEVICE_CHECKS.md` WP4), in progress:
+- 4.0: release build installed over Wi-Fi (`flutter run --release
+  --no-resident`); the user reported the status line shows "calibrated K"
+  (in text, no screenshot).
+- 4.1–4.4 (markers 1–4 printed and taped, ~90 s recording, Build map, Save
+  map, export): not done yet. Handed over to a teammate; see
+  `docs/HANDOFF.md`.
 
 ## Decisions
 
@@ -428,6 +434,9 @@ markers 0–4 on the walls, Build map, Save map, export).
 - Answered: iPhone 15 (`iPhone15,4`), ARKit image 1920×1440 → 960×720.
 
 ## Next
+
+Handover: `docs/HANDOFF.md` describes the state and the plan for WP4's
+device check and WP5–WP8.
 
 WP4 device check (see `DEVICE_CHECKS.md` WP4), then WP5 (pose-graph
 optimizer). Add a replay regression test on the exported WP4 recording

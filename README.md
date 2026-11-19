@@ -7,7 +7,8 @@ that map.
 
 Development continues on the `iphone-slam` branch, iPhone only, following
 `docs/SPEC.md`. Progress, checks run and open items are in
-`docs/PROGRESS.md`; the design in `docs/DESIGN.md`.
+`docs/PROGRESS.md`; the design in `docs/DESIGN.md`; the handover and plan for
+the remaining work in `docs/HANDOFF.md`.
 
 ## Status
 
@@ -17,7 +18,7 @@ Development continues on the `iphone-slam` branch, iPhone only, following
 | Dataset save / load | **Done in code (WP1).** Every recording is saved to a session folder; sessions can be listed, opened, renamed, exported (zip) and deleted, and replayed through the same interface as live data. |
 | Calibration, time offset | **Done (WP2).** Chessboard calibration sheet (OpenCV, k1/k2 only) with ARKit comparison; camera–IMU time offset and rotation from a rotation recording (session screen → IMU alignment). Device checks passed: RMS 0.467 px; R_ci 0.10° from Apple's axes. |
 | ArUco detection | **Done in code (WP3).** `DICT_4X4_50` with sub-pixel corners, IPPE pose, the spec's rejection rules; live outlines, IDs and distances on the camera view; session screen → Detect markers writes `results/detections.csv`. Marker sheet `docs/markers_4x4_50_ids0-9.pdf`. Device check passed: 1.006 m at 1 m, 2.058 m at 2 m. |
-| Keyframes, baselines, first map | **Done in code (WP4), device check pending.** Session screen → Build map: keyframes (0.25 m / 15° / marker ≥ 0.3 s), baseline 1 (ARKit odometry chained), baseline 2 (IMU dead reckoning, biases from a still window), each marker placed at first sight; writes `results/traj_arkit.csv`, `traj_imu.csv`, `map.json`; Save map → `maps/<room>.json`. Tested on simulated recordings. |
+| Keyframes, baselines, first map | **Done in code (WP4), device check in progress.** Session screen → Build map: keyframes (0.25 m / 15° / marker ≥ 0.3 s), baseline 1 (ARKit odometry chained), baseline 2 (IMU dead reckoning, biases from a still window), each marker placed at first sight; writes `results/traj_arkit.csv`, `traj_imu.csv`, `map.json`; Save map → `maps/<room>.json`. Tested on simulated recordings. |
 | Pose-graph optimizer, relocalization, map view, evaluation | Not started (WP5–WP8). |
 
 ## What the app does now
