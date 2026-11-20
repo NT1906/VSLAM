@@ -5,11 +5,14 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../services/session_controller.dart';
 import '../slam/ar_pose.dart';
 import '../slam/slam_service.dart';
+import 'marker_overlay.dart';
 
-/// Live camera feed from the native AR session, with a tracking-state badge.
-/// Falls back to an explanation card when AR can't run.
+/// Live camera feed from the native AR session, with a tracking-state badge
+/// and the detected ArUco markers ([MarkerOverlay]). Falls back to an
+/// explanation card when AR can't run.
 class ArCameraView extends StatelessWidget {
   const ArCameraView({super.key});
 
@@ -52,6 +55,7 @@ class ArCameraView extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 const _NativeArView(),
+                MarkerOverlay(sideM: context.select<SessionController, double>((c) => c.settings.markerSideM)),
                 Positioned(
                   left: 8,
                   top: 8,

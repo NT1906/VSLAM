@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="280.0mm" height="225.0mm" viewBox="0 0 280.0 225.0">
+<rect width="280.0" height="225.0" fill="white"/>
+<rect x="15.0" y="15.0" width="25.0" height="25.0" fill="black"/>
+<rect x="65.0" y="15.0" width="25.0" height="25.0" fill="black"/>
+<rect x="115.0" y="15.0" width="25.0" height="25.0" fill="black"/>
+<rect x="165.0" y="15.0" width="25.0" height="25.0" fill="black"/>
+<rect x="215.0" y="15.0" width="25.0" height="25.0" fill="black"/>
+<rect x="40.0" y="40.0" width="25.0" height="25.0" fill="black"/>
+<rect x="90.0" y="40.0" width="25.0" height="25.0" fill="black"/>
+<rect x="140.0" y="40.0" width="25.0" height="25.0" fill="black"/>
+<rect x="190.0" y="40.0" width="25.0" height="25.0" fill="black"/>
+<rect x="240.0" y="40.0" width="25.0" height="25.0" fill="black"/>
+<rect x="15.0" y="65.0" width="25.0" height="25.0" fill="black"/>
+<rect x="65.0" y="65.0" width="25.0" height="25.0" fill="black"/>
+<rect x="115.0" y="65.0" width="25.0" height="25.0" fill="black"/>
+<rect x="165.0" y="65.0" width="25.0" height="25.0" fill="black"/>
+<rect x="215.0" y="65.0" width="25.0" height="25.0" fill="black"/>
+<rect x="40.0" y="90.0" width="25.0" height="25.0" fill="black"/>
+<rect x="90.0" y="90.0" width="25.0" height="25.0" fill="black"/>
+<rect x="140.0" y="90.0" width="25.0" height="25.0" fill="black"/>
+<rect x="190.0" y="90.0" width="25.0" height="25.0" fill="black"/>
+<rect x="240.0" y="90.0" width="25.0" height="25.0" fill="black"/>
+<rect x="15.0" y="115.0" width="25.0" height="25.0" fill="black"/>
+<rect x="65.0" y="115.0" width="25.0" height="25.0" fill="black"/>
+<rect x="115.0" y="115.0" width="25.0" height="25.0" fill="black"/>
+<rect x="165.0" y="115.0" width="25.0" height="25.0" fill="black"/>
+<rect x="215.0" y="115.0" width="25.0" height="25.0" fill="black"/>
+<rect x="40.0" y="140.0" width="25.0" height="25.0" fill="black"/>
+<rect x="90.0" y="140.0" width="25.0" height="25.0" fill="black"/>
+<rect x="140.0" y="140.0" width="25.0" height="25.0" fill="black"/>
+<rect x="190.0" y="140.0" width="25.0" height="25.0" fill="black"/>
+<rect x="240.0" y="140.0" width="25.0" height="25.0" fill="black"/>
+<rect x="15.0" y="165.0" width="25.0" height="25.0" fill="black"/>
+<rect x="65.0" y="165.0" width="25.0" height="25.0" fill="black"/>
+<rect x="115.0" y="165.0" width="25.0" height="25.0" fill="black"/>
+<rect x="165.0" y="165.0" width="25.0" height="25.0" fill="black"/>
+<rect x="215.0" y="165.0" width="25.0" height="25.0" fill="black"/>
+<line x1="15.0" y1="200.0" x2="115.0" y2="200.0" stroke="black" stroke-width="0.3"/>
+<line x1="15.0" y1="198.0" x2="15.0" y2="202.0" stroke="black" stroke-width="0.3"/>
+<line x1="115.0" y1="198.0" x2="115.0" y2="202.0" stroke="black" stroke-width="0.3"/>
+<text x="119.0" y="201.2" font-size="3.5" font-family="Helvetica">100 mm. Chessboard 9×6 inner corners, 25.0 mm squares. Print at actual size.</text>
+</svg>
